@@ -43,6 +43,7 @@ module "budget_kill" {
 module "firebase" {
   source = "../../modules/firebase"
   providers = {
+    google      = google
     google-beta = google-beta
   }
 }

@@ -14,7 +14,7 @@ The state bucket is in Terraform with `prevent_destroy`. Prod uses the same buck
 | `cloud_run` | API, public invoker, domain mapping |
 | `wif` | GitHub OIDC + `github-deploy` |
 | `budget_kill` | $50 GetGrounded budget + kill path, and the $100 account alert |
-| `firebase` | Firebase on `get-ground-448ca` |
+| `firebase` | Firebase + Identity Platform email/password |
 
 ```bash
 source ~/.config/cloudflare/env

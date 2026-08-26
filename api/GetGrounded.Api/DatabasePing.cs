@@ -26,7 +26,7 @@ public sealed class NpgsqlDatabasePing(IConfiguration configuration) : IDatabase
 
         try
         {
-            await using var connection = new NpgsqlConnection(ToNpgsql(connectionString));
+            await using var connection = new NpgsqlConnection(DatabaseUrl.ToNpgsql(connectionString));
             await using var command = new NpgsqlCommand(
                 "SELECT current_database(), current_setting('server_version')",
                 connection)
@@ -53,51 +53,5 @@ public sealed class NpgsqlDatabasePing(IConfiguration configuration) : IDatabase
         {
             return new DatabasePingResult("unavailable", null, null, null);
         }
-    }
-
-    private static string ToNpgsql(string connectionString)
-    {
-        if (!connectionString.StartsWith("postgres", StringComparison.OrdinalIgnoreCase))
-        {
-            return connectionString;
-        }
-
-        var uri = new Uri(connectionString);
-        var userInfo = uri.UserInfo.Split(':', 2);
-        var builder = new NpgsqlConnectionStringBuilder
-        {
-            Username = Uri.UnescapeDataString(userInfo[0]),
-            Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty,
-            Database = uri.AbsolutePath.Trim('/'),
-            Timeout = 2
-        };
-
-        builder.Host = QueryValue(uri.Query, "host") ?? uri.Host;
-
-        if (uri.Port > 0)
-        {
-            builder.Port = uri.Port;
-        }
-
-        return builder.ConnectionString;
-    }
-
-    private static string? QueryValue(string query, string key)
-    {
-        if (string.IsNullOrEmpty(query))
-        {
-            return null;
-        }
-
-        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var parts = pair.Split('=', 2);
-            if (parts.Length == 2 && parts[0] == key)
-            {
-                return Uri.UnescapeDataString(parts[1]);
-            }
-        }
-
-        return null;
     }
 }
