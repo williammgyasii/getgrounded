@@ -93,6 +93,22 @@ public class ClipTests
     }
 
     [Fact]
+    public async Task Hear_accepts_octet_stream_phone_audio()
+    {
+        var speech = new StubSpeechToText("Gym at 7 and read.");
+        using var factory = CreateFactory(speech, new StubLanguageModel("""{"commitments":[]}"""));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        using var form = AudioForm("MORNING_PLAN", [1, 2, 3, 4], "application/octet-stream");
+        var response = await client.PostAsync("/voice/hear", form);
+        var body = await response.Content.ReadFromJsonAsync<HearBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Gym at 7 and read.", body!.Transcript);
+    }
+
+    [Fact]
     public async Task Empty_transcript_is_unprocessable()
     {
         using var factory = CreateFactory(
@@ -164,13 +180,13 @@ public class ClipTests
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
 
-    private static MultipartFormDataContent AudioForm(string kind, byte[] bytes)
+    private static MultipartFormDataContent AudioForm(string kind, byte[] bytes, string contentType = "audio/mp4")
     {
         var form = new MultipartFormDataContent();
         form.Add(new StringContent(kind), "kind");
         form.Add(new StringContent("UTC"), "timezone");
         form.Add(
-            new ByteArrayContent(bytes) { Headers = { ContentType = new MediaTypeHeaderValue("audio/mp4") } },
+            new ByteArrayContent(bytes) { Headers = { ContentType = new MediaTypeHeaderValue(contentType) } },
             "audio",
             "clip.m4a");
         return form;

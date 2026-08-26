@@ -18,7 +18,7 @@ export default function TalkScreen() {
         ]}>
         <ThemedText style={styles.title}>Plan your day</ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-          Speak it. Check it. We’ll book it.
+          Speak it. Watch your words. Then we book it.
         </ThemedText>
         <MorningWizard />
       </ScrollView>

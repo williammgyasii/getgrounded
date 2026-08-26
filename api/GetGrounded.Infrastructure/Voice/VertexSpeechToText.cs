@@ -1,10 +1,11 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using GetGrounded.Application.Voice;
+using Microsoft.Extensions.Configuration;
 
 namespace GetGrounded.Infrastructure.Voice;
 
-public sealed class VertexSpeechToText(IHttpClientFactory http) : ISpeechToText
+public sealed class VertexSpeechToText(IHttpClientFactory http, IConfiguration config) : ISpeechToText
 {
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -13,9 +14,12 @@ public sealed class VertexSpeechToText(IHttpClientFactory http) : ISpeechToText
 
     public async Task<HearResult> HearAsync(HearClip clip, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            "https://speech.googleapis.com/v1/speech:recognize");
+        var project = config["GOOGLE_CLOUD_PROJECT"] ?? "get-ground-448ca";
+        var location = config["GOOGLE_CLOUD_LOCATION"] ?? "us-central1";
+        var url =
+            $"https://{location}-speech.googleapis.com/v2/projects/{project}/locations/{location}/recognizers/_:recognize";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
         try
         {
             request.Headers.Authorization = new AuthenticationHeaderValue(
@@ -31,10 +35,12 @@ public sealed class VertexSpeechToText(IHttpClientFactory http) : ISpeechToText
         {
             config = new
             {
-                languageCode = "en-US",
-                enableAutomaticPunctuation = true
+                autoDecodingConfig = new { },
+                languageCodes = new[] { "en-US" },
+                model = "latest_short",
+                features = new { enableAutomaticPunctuation = true }
             },
-            audio = new { content = Convert.ToBase64String(clip.Bytes) }
+            content = Convert.ToBase64String(clip.Bytes)
         });
 
         HttpResponseMessage response;

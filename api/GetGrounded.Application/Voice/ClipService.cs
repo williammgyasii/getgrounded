@@ -87,9 +87,27 @@ public sealed class ClipService(
             throw new ClipTooLargeException();
         }
 
-        if (clip.ContentType is not ("audio/mp4" or "audio/m4a" or "audio/x-m4a"))
+        if (!IsAudio(clip.ContentType))
         {
             throw new ArgumentException("Unsupported audio type.", nameof(clip));
         }
+    }
+
+    private static bool IsAudio(string contentType)
+    {
+        var type = contentType.Split(';', 2)[0].Trim().ToLowerInvariant();
+        return type is ""
+            or "application/octet-stream"
+            or "audio/mp4"
+            or "audio/m4a"
+            or "audio/x-m4a"
+            or "audio/aac"
+            or "audio/mpeg"
+            or "audio/mp3"
+            or "audio/wav"
+            or "audio/x-wav"
+            or "audio/3gpp"
+            or "audio/amr"
+            or "audio/webm";
     }
 }

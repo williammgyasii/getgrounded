@@ -10,7 +10,8 @@ import {
 } from 'expo-audio';
 
 import { PillButton } from '@/components/auth/pill-button';
-import { MicWaves } from '@/components/talk/mic-waves';
+import { PlanMic } from '@/components/talk/plan-mic';
+import { useLiveWords } from '@/components/talk/use-live-words';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -23,7 +24,7 @@ import {
 
 const MaxMs = 60_000;
 
-type Step = 'record' | 'words' | 'thinking' | 'check';
+type Step = 'record' | 'thinking' | 'check';
 type Line = { key: string; title: string };
 
 export function MorningWizard() {
@@ -37,18 +38,25 @@ export function MorningWizard() {
   const [hearClip] = useHearClipMutation();
   const [extractMorning] = useExtractMorningMutation();
   const [planMorning, saveState] = usePlanMorningMutation();
+  const live = useLiveWords(rec.isRecording);
 
   const [step, setStep] = useState<Step>('record');
-  const [note, setNote] = useState('Tap the forest button. Speak the plan.');
+  const [note, setNote] = useState('Tap the forest mic. Speak the plan.');
   const [words, setWords] = useState('');
   const [dayTitle, setDayTitle] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
 
   useEffect(() => {
+    if (live.words.length > 0) {
+      setWords(live.words);
+    }
+  }, [live.words]);
+
+  useEffect(() => {
     void (async () => {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
       if (!permission.granted) {
-        setNote('Mic is blocked. Type the day instead.');
+        setNote('Mic is blocked. Type the day in the words box.');
         return;
       }
 
@@ -66,7 +74,7 @@ export function MorningWizard() {
   }, [rec.durationMillis, rec.isRecording]);
 
   async function start() {
-    setNote('Listening. Tap again when you are done.');
+    setNote('Listening. Tap the mic when you are done.');
     await recorder.prepareToRecordAsync();
     recorder.record();
   }
@@ -75,20 +83,23 @@ export function MorningWizard() {
     await recorder.stop();
     const uri = recorder.uri;
     if (!uri) {
-      setNote('Nothing was recorded. Tap the forest button and speak.');
+      setNote('Nothing was recorded. Tap the forest mic and speak.');
       return;
     }
 
-    setStep('thinking');
     setNote('Hearing you.');
     try {
       const heard = await hearClip({ uri }).unwrap();
-      setWords(heard.transcript);
-      setStep('words');
+      if (heard.transcript.trim().length > 0) {
+        setWords(heard.transcript);
+      }
       setNote('Fix anything we misheard, then continue.');
-    } catch {
-      setStep('record');
-      setNote('Could not hear that clip. Try again, or type it.');
+    } catch (error) {
+      const status =
+        error && typeof error === 'object' && 'status' in error
+          ? String((error as { status: unknown }).status)
+          : 'failed';
+      setNote(`Could not hear that clip (${status}). Keep your words, or type them.`);
     }
   }
 
@@ -116,7 +127,7 @@ export function MorningWizard() {
       setStep('check');
       setNote('Edit the plan, name the day, then save.');
     } catch {
-      setStep('words');
+      setStep('record');
       setNote('Could not extract a plan. Edit the words and try again.');
     }
   }
@@ -144,49 +155,6 @@ export function MorningWizard() {
     }
   }
 
-  const seconds = Math.min(60, Math.round(rec.durationMillis / 1000));
-
-  if (step === 'record') {
-    return (
-      <View style={styles.wrap}>
-        <MicWaves metering={rec.metering} active={rec.isRecording} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={rec.isRecording ? 'Stop recording' : 'Start recording'}
-          onPress={() => {
-            void (rec.isRecording ? stopAndHear() : start());
-          }}
-          style={({ pressed }) => [
-            styles.mic,
-            {
-              backgroundColor: rec.isRecording ? theme.text : theme.primary,
-              opacity: pressed ? 0.85 : 1,
-            },
-          ]}>
-          <ThemedText style={[styles.micLabel, { color: theme.primaryOn }]}>
-            {rec.isRecording ? 'Stop' : 'Talk'}
-          </ThemedText>
-          <ThemedText style={[styles.timer, { color: theme.primaryOn }]}>
-            {rec.isRecording ? `${seconds}s` : 'tap'}
-          </ThemedText>
-        </Pressable>
-        <ThemedText type="small" themeColor="textSecondary">
-          {note}
-        </ThemedText>
-        <Pressable
-          onPress={() => {
-            setStep('words');
-            setNote('Type the plan. Then we will extract it.');
-          }}
-          accessibilityRole="button">
-          <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
-            Type instead
-          </ThemedText>
-        </Pressable>
-      </View>
-    );
-  }
-
   if (step === 'thinking') {
     return (
       <View style={styles.wrap}>
@@ -198,18 +166,17 @@ export function MorningWizard() {
     );
   }
 
-  if (step === 'words') {
+  if (step === 'check') {
     return (
       <View style={styles.wrap}>
-        <ThemedText style={styles.stepTitle}>Your words</ThemedText>
+        <ThemedText style={styles.stepTitle}>Check the plan</ThemedText>
         <TextInput
-          value={words}
-          onChangeText={setWords}
-          multiline
-          placeholder={'Gym at 7\nRead 20 minutes'}
+          value={dayTitle}
+          onChangeText={setDayTitle}
+          placeholder="Name this day"
           placeholderTextColor={theme.textSecondary}
           style={[
-            styles.input,
+            styles.titleInput,
             {
               backgroundColor: theme.inputBackground,
               borderColor: theme.border,
@@ -217,13 +184,41 @@ export function MorningWizard() {
             },
           ]}
         />
+        {lines.map((line) => (
+          <TextInput
+            key={line.key}
+            value={line.title}
+            onChangeText={(title) =>
+              setLines((current) =>
+                current.map((item) => (item.key === line.key ? { ...item, title } : item)),
+              )
+            }
+            placeholder="A commitment"
+            placeholderTextColor={theme.textSecondary}
+            style={[
+              styles.line,
+              {
+                backgroundColor: theme.inputBackground,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+          />
+        ))}
+        <Pressable
+          onPress={() => setLines((current) => [...current, { key: String(Date.now()), title: '' }])}
+          accessibilityRole="button">
+          <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
+            Add another
+          </ThemedText>
+        </Pressable>
         <ThemedText type="small" themeColor="textSecondary">
           {note}
         </ThemedText>
-        <PillButton label="Continue" onPress={() => void extract()} />
+        <PillButton label="Save" loading={saveState.isLoading} onPress={() => void save()} />
         <Pressable onPress={() => setStep('record')} accessibilityRole="button">
           <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
-            Back to the mic
+            Edit your words
           </ThemedText>
         </Pressable>
       </View>
@@ -232,56 +227,41 @@ export function MorningWizard() {
 
   return (
     <View style={styles.wrap}>
-      <ThemedText style={styles.stepTitle}>Check the plan</ThemedText>
-      <TextInput
-        value={dayTitle}
-        onChangeText={setDayTitle}
-        placeholder="Name this day"
-        placeholderTextColor={theme.textSecondary}
+      <View
         style={[
-          styles.titleInput,
+          styles.words,
           {
             backgroundColor: theme.inputBackground,
             borderColor: theme.border,
-            color: theme.text,
           },
-        ]}
-      />
-      {lines.map((line) => (
+        ]}>
+        <ThemedText type="smallBold">Your words</ThemedText>
         <TextInput
-          key={line.key}
-          value={line.title}
-          onChangeText={(title) =>
-            setLines((current) => current.map((item) => (item.key === line.key ? { ...item, title } : item)))
+          value={words}
+          onChangeText={setWords}
+          multiline
+          placeholder={
+            rec.isRecording
+              ? live.liveAvailable
+                ? 'Listening…'
+                : 'Listening… words appear when you stop.'
+              : 'Tap the mic and speak. Or type here.'
           }
-          placeholder="A commitment"
           placeholderTextColor={theme.textSecondary}
-          style={[
-            styles.line,
-            {
-              backgroundColor: theme.inputBackground,
-              borderColor: theme.border,
-              color: theme.text,
-            },
-          ]}
+          style={[styles.wordsInput, { color: theme.text }]}
         />
-      ))}
-      <Pressable
-        onPress={() => setLines((current) => [...current, { key: String(Date.now()), title: '' }])}
-        accessibilityRole="button">
-        <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
-          Add another
-        </ThemedText>
-      </Pressable>
-      <ThemedText type="small" themeColor="textSecondary">
+      </View>
+      <PlanMic
+        recording={rec.isRecording}
+        metering={rec.metering}
+        onPress={() => {
+          void (rec.isRecording ? stopAndHear() : start());
+        }}
+      />
+      <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
         {note}
       </ThemedText>
-      <PillButton label="Save" loading={saveState.isLoading} onPress={() => void save()} />
-      <Pressable onPress={() => setStep('words')} accessibilityRole="button">
-        <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
-          Edit your words
-        </ThemedText>
-      </Pressable>
+      <PillButton label="Continue" disabled={words.trim().length === 0} onPress={() => void extract()} />
     </View>
   );
 }
@@ -298,37 +278,26 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
   },
-  mic: {
-    width: 168,
-    height: 168,
-    borderRadius: 84,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.one,
-  },
-  micLabel: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 28,
-    lineHeight: 34,
-  },
-  timer: {
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  toggle: {
-    textDecorationLine: 'underline',
-  },
-  input: {
+  words: {
     width: '100%',
     minHeight: 140,
     borderWidth: 1,
-    borderRadius: Radius.field,
+    borderRadius: Radius.card,
     padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  wordsInput: {
+    minHeight: 88,
     fontFamily: FontFamily.medium,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 26,
     textAlignVertical: 'top',
+  },
+  note: {
+    textAlign: 'center',
+  },
+  toggle: {
+    textDecorationLine: 'underline',
   },
   titleInput: {
     width: '100%',
