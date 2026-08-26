@@ -1,0 +1,10 @@
+{
+    "agents": [
+        {
+            "config": "agent_configs/GetGrounded.json",
+            "id": "agent_1601m0y7h0mxer8rpc06xrvcpn69",
+            "version_id": "agtvrsn_7801m0y7hy9webwa69tpjrqt8mfp",
+            "branch_id": "agtbrch_8701m0y7h4k6ft1b9rwtdaafbdzm"
+        }
+    ]
+}

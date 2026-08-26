@@ -16,3 +16,28 @@ resource "google_secret_manager_secret_version" "database_url" {
     ignore_changes = [secret_data]
   }
 }
+
+resource "google_secret_manager_secret" "elevenlabs_api_key" {
+  secret_id = "getgrounded-dev-elevenlabs-api-key"
+  project   = "get-ground-448ca"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "elevenlabs_api_key" {
+  secret      = google_secret_manager_secret.elevenlabs_api_key.id
+  secret_data = "imported"
+
+  lifecycle {
+    ignore_changes = [secret_data]
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "elevenlabs_api_key_run" {
+  project   = "get-ground-448ca"
+  secret_id = google_secret_manager_secret.elevenlabs_api_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:317766274600-compute@developer.gserviceaccount.com"
+}

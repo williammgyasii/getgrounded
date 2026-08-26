@@ -64,6 +64,21 @@ resource "google_cloud_run_v2_service" "api" {
         }
       }
 
+      env {
+        name  = "ELEVENLABS_AGENT_ID"
+        value = var.elevenlabs_agent_id
+      }
+
+      env {
+        name = "ELEVENLABS_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.elevenlabs_api_key_secret_id
+            version = "latest"
+          }
+        }
+      }
+
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"

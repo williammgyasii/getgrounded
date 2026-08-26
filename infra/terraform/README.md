@@ -10,7 +10,7 @@ The state bucket is in Terraform with `prevent_destroy`. Prod uses the same buck
 | `r2` | `getgrounded-dev-audio` |
 | `dns` | CNAME `dev.get-grounded.app` |
 | `sql` | `getgrounded-dev` + db `getgrounded` |
-| `secret` | secret + version 1 (`secret_data` ignored in `.tf`) |
+| `secret` | database URL + ElevenLabs API key (`secret_data` ignored in `.tf`) |
 | `cloud_run` | API, public invoker, domain mapping |
 | `wif` | GitHub OIDC + `github-deploy` |
 | `budget_kill` | $50 GetGrounded budget + kill path, and the $100 account alert |
