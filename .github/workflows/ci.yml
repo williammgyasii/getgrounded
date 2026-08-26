@@ -23,7 +23,8 @@ jobs:
           global-json-file: global.json
       - name: Build API
         run: dotnet build GetGrounded.Api/GetGrounded.Api.csproj --configuration Release --nologo
-      # Domain tests stay out of CI until the first types exist and the suite is green.
+      - name: Test
+        run: dotnet test GetGrounded.slnx --configuration Release --nologo
 
   mobile:
     name: Mobile typecheck
