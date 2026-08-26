@@ -7,9 +7,12 @@ import {
 import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
+import { Provider } from 'react-redux';
+
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthSessionRedirect } from '@/components/auth/auth-session';
 import { Colors } from '@/constants/theme';
+import { store } from '@/store';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,16 +40,18 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={GroundedTheme}>
-      <AuthSessionRedirect />
-      <AnimatedSplashOverlay />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-          contentStyle: { backgroundColor: Colors.light.background },
-        }}
-      />
-    </ThemeProvider>
+    <Provider store={store}>
+      <ThemeProvider value={GroundedTheme}>
+        <AuthSessionRedirect />
+        <AnimatedSplashOverlay />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            contentStyle: { backgroundColor: Colors.light.background },
+          }}
+        />
+      </ThemeProvider>
+    </Provider>
   );
 }

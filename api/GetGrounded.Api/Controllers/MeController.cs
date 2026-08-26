@@ -1,3 +1,4 @@
+using GetGrounded.Api.Http;
 using GetGrounded.Application.Auth;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,14 +11,8 @@ public sealed class MeController(AuthService auth) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
-        var header = Request.Headers.Authorization.ToString();
-        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-        {
-            return Unauthorized();
-        }
-
-        var token = header["Bearer ".Length..].Trim();
-        if (string.IsNullOrEmpty(token))
+        var token = Bearer.Read(Request);
+        if (token is null)
         {
             return Unauthorized();
         }

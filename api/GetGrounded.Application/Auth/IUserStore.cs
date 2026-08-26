@@ -4,5 +4,5 @@ namespace GetGrounded.Application.Auth;
 
 public interface IUserStore
 {
-    Task EnsureAsync(User user, CancellationToken cancellationToken = default);
+    Task<User> FindOrCreateAsync(string firebaseUid, CancellationToken cancellationToken = default);
 }

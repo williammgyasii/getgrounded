@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using GetGrounded.Application.Auth;
 using GetGrounded.Application.Voice;
-using GetGrounded.Domain;
+using GetGrounded.Tests.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -55,6 +55,18 @@ public class VoiceTests
     }
 
     [Fact]
+    public async Task Session_when_workspace_is_busy_is_too_many_requests()
+    {
+        using var factory = CreateFactory(new StubVerifier(), new BusyVoiceSessions());
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var response = await client.GetAsync("/voice/session");
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Session_with_identity_returns_conversation_ticket()
     {
         using var factory = CreateFactory(new StubVerifier(), new StubVoiceSessions());
@@ -85,40 +97,32 @@ public class VoiceTests
                 }
 
                 services.AddSingleton(voice ?? new MissingVoiceSessions());
-                services.AddSingleton<IUserStore, RecordingUserStore>();
+                services.AddSingleton<IUserStore, LivingUserStore>();
             });
         });
     }
 
-    private sealed class StubVerifier : ITokenVerifier
-    {
-        public Task<string?> VerifyUserIdAsync(string token, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<string?>(token == "valid-test-token" ? "firebase-uid-1" : null);
-        }
-    }
-
-    private sealed class RecordingUserStore : IUserStore
-    {
-        public Task EnsureAsync(User user, CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
-    }
-
     private sealed class MissingVoiceSessions : IVoiceSessionIssuer
     {
-        public Task<VoiceSession?> IssueAsync(string userId, CancellationToken cancellationToken = default)
+        public Task<VoiceIssue> IssueAsync(string userId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<VoiceSession?>(null);
+            return Task.FromResult(VoiceIssue.NotConfigured);
+        }
+    }
+
+    private sealed class BusyVoiceSessions : IVoiceSessionIssuer
+    {
+        public Task<VoiceIssue> IssueAsync(string userId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(VoiceIssue.Busy);
         }
     }
 
     private sealed class StubVoiceSessions : IVoiceSessionIssuer
     {
-        public Task<VoiceSession?> IssueAsync(string userId, CancellationToken cancellationToken = default)
+        public Task<VoiceIssue> IssueAsync(string userId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<VoiceSession?>(new VoiceSession("conv-token-1", "agent-1"));
+            return Task.FromResult(VoiceIssue.Ready(new VoiceSession("conv-token-1", "agent-1")));
         }
     }
 

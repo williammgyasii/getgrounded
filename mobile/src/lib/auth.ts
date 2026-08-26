@@ -4,8 +4,9 @@ import {
   type User,
 } from 'firebase/auth';
 
-import { identifyMe } from '@/lib/api';
 import { getFirebaseAuth } from '@/lib/firebase';
+import { store } from '@/store';
+import { groundedApi } from '@/store/api';
 
 export function validateEmail(email: string): string | null {
   if (!email.includes('@') || email.trim().length < 5) {
@@ -45,12 +46,11 @@ export function firebaseAuthMessage(code: string): string {
   }
 }
 
-async function syncProfile(user: User) {
-  const token = await user.getIdToken();
+async function syncProfile(_user: User) {
   try {
-    await identifyMe(token);
+    await store.dispatch(groundedApi.endpoints.identifyMe.initiate(undefined, { forceRefetch: true })).unwrap();
   } catch {
-    // Firebase already authenticated. Home should not wait on /me.
+    // Firebase already authenticated. Today should not wait on /me.
   }
 }
 

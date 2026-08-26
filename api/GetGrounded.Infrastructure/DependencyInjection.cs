@@ -1,8 +1,12 @@
 using GetGrounded.Application.Auth;
+using GetGrounded.Application.Book;
 using GetGrounded.Application.Health;
+using GetGrounded.Application.Time;
 using GetGrounded.Application.Voice;
 using GetGrounded.Infrastructure.Auth;
+using GetGrounded.Infrastructure.Book;
 using GetGrounded.Infrastructure.Health;
+using GetGrounded.Infrastructure.Time;
 using GetGrounded.Infrastructure.Voice;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,6 +22,8 @@ public static class DependencyInjection
         });
         services.AddSingleton<ITokenVerifier, FirebaseTokenVerifier>();
         services.AddSingleton<IUserStore, PostgresUserStore>();
+        services.AddSingleton<IBookStore, PostgresBookStore>();
+        services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IDatabasePing, NpgsqlDatabasePing>();
         services.AddSingleton<IVoiceSessionIssuer, ElevenLabsVoiceSessions>();
         return services;

@@ -6,14 +6,18 @@ import { Colors } from '@/constants/theme';
 export default function AppTabsLayout() {
   return (
     <Tabs
+      initialRouteName="today"
       tabBar={(props) => <GroundedTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: Colors.light.background },
       }}>
-      <Tabs.Screen name="home" />
+      <Tabs.Screen name="today" />
+      <Tabs.Screen name="history" />
+      <Tabs.Screen name="talk" />
+      <Tabs.Screen name="review" />
       <Tabs.Screen name="you" />
-      <Tabs.Screen name="talk" options={{ href: null }} />
+      <Tabs.Screen name="home" options={{ href: null }} />
     </Tabs>
   );
 }

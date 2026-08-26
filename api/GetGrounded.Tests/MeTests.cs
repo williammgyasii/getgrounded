@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using GetGrounded.Application.Auth;
-using GetGrounded.Domain;
+using GetGrounded.Tests.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -42,9 +42,9 @@ public class MeTests
     }
 
     [Fact]
-    public async Task Me_with_valid_identity_returns_firebase_user_id()
+    public async Task Me_with_valid_identity_returns_our_guid()
     {
-        var users = new RecordingUserStore();
+        var users = new LivingUserStore();
         using var factory = CreateFactory(new StubVerifier(), users);
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
@@ -54,8 +54,20 @@ public class MeTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(body);
-        Assert.Equal("firebase-uid-1", body.UserId);
-        Assert.Equal(["firebase-uid-1"], users.Ensured);
+        Assert.Equal(LivingUserStore.UserId, body.UserId);
+        Assert.Equal(["firebase-uid-1"], users.FirebaseUids);
+    }
+
+    [Fact]
+    public async Task Me_with_a_tombstone_is_unauthorized()
+    {
+        using var factory = CreateFactory(new StubVerifier(), new TombstoneUserStore());
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var response = await client.GetAsync("/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(ITokenVerifier? verifier = null, IUserStore? users = null)
@@ -70,29 +82,10 @@ public class MeTests
                     services.AddSingleton(verifier);
                 }
 
-                services.AddSingleton(users ?? new RecordingUserStore());
+                services.AddSingleton(users ?? new LivingUserStore());
             });
         });
     }
 
-    private sealed class StubVerifier : ITokenVerifier
-    {
-        public Task<string?> VerifyUserIdAsync(string token, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<string?>(token == "valid-test-token" ? "firebase-uid-1" : null);
-        }
-    }
-
-    private sealed class RecordingUserStore : IUserStore
-    {
-        public List<string> Ensured { get; } = [];
-
-        public Task EnsureAsync(User user, CancellationToken cancellationToken = default)
-        {
-            Ensured.Add(user.Id);
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed record MeResponse(string UserId);
+    private sealed record MeResponse(Guid UserId);
 }

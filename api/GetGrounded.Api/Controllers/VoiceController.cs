@@ -1,3 +1,4 @@
+using GetGrounded.Api.Http;
 using GetGrounded.Application.Auth;
 using GetGrounded.Application.Voice;
 using Microsoft.AspNetCore.Mvc;
@@ -11,14 +12,8 @@ public sealed class VoiceController(AuthService auth, IVoiceSessionIssuer sessio
     [HttpGet("session")]
     public async Task<IActionResult> Session(CancellationToken cancellationToken)
     {
-        var header = Request.Headers.Authorization.ToString();
-        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-        {
-            return Unauthorized();
-        }
-
-        var token = header["Bearer ".Length..].Trim();
-        if (string.IsNullOrEmpty(token))
+        var token = Bearer.Read(Request);
+        if (token is null)
         {
             return Unauthorized();
         }
@@ -29,9 +24,17 @@ public sealed class VoiceController(AuthService auth, IVoiceSessionIssuer sessio
             return Unauthorized();
         }
 
-        var session = await sessions.IssueAsync(user.Id, cancellationToken);
-        return session is null
-            ? StatusCode(StatusCodes.Status503ServiceUnavailable)
-            : Ok(new { conversationToken = session.ConversationToken, agentId = session.AgentId });
+        var issue = await sessions.IssueAsync(user.Id.ToString(), cancellationToken);
+        return issue.Kind switch
+        {
+            VoiceIssueKind.Ready => Ok(new
+            {
+                conversationToken = issue.Session!.ConversationToken,
+                agentId = issue.Session.AgentId
+            }),
+            VoiceIssueKind.Busy => StatusCode(StatusCodes.Status429TooManyRequests, new { error = "busy" }),
+            VoiceIssueKind.Failed => StatusCode(StatusCodes.Status502BadGateway, new { error = "upstream" }),
+            _ => StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "not_configured" })
+        };
     }
 }

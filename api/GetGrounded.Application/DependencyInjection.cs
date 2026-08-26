@@ -1,4 +1,5 @@
 using GetGrounded.Application.Auth;
+using GetGrounded.Application.Book;
 using GetGrounded.Application.Health;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddSingleton<AuthService>();
         services.AddSingleton<HealthService>();
+        services.AddSingleton<BookService>();
         return services;
     }
 }

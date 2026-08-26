@@ -2,20 +2,35 @@ namespace GetGrounded.Domain;
 
 public sealed class User
 {
-    public string Id { get; }
+    public Guid Id { get; }
+    public string FirebaseUid { get; }
+    public DateTimeOffset? DeletedAt { get; }
 
-    private User(string id)
+    private User(Guid id, string firebaseUid, DateTimeOffset? deletedAt)
     {
         Id = id;
+        FirebaseUid = firebaseUid;
+        DeletedAt = deletedAt;
     }
 
-    public static User FromIdentity(string id)
+    public static User Open(Guid id, string firebaseUid)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        if (id == Guid.Empty)
         {
             throw new ArgumentException("User id is required.", nameof(id));
         }
 
-        return new User(id.Trim());
+        if (string.IsNullOrWhiteSpace(firebaseUid))
+        {
+            throw new ArgumentException("Firebase uid is required.", nameof(firebaseUid));
+        }
+
+        return new User(id, firebaseUid.Trim(), deletedAt: null);
+    }
+
+    public static User Tombstone(Guid id, string firebaseUid, DateTimeOffset deletedAt)
+    {
+        var living = Open(id, firebaseUid);
+        return new User(living.Id, living.FirebaseUid, deletedAt);
     }
 }

@@ -3,10 +3,12 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 
 import { getFirebaseAuth } from '@/lib/firebase';
+import { store } from '@/store';
+import { groundedApi } from '@/store/api';
 
-const HOME = '/home' as Href;
+const HOME = '/today' as Href;
 const WELCOME = '/' as Href;
-const APP_ROUTES = new Set(['home', 'you', 'talk']);
+const APP_ROUTES = new Set(['today', 'history', 'talk', 'review', 'you']);
 
 function isAppRoute(segments: string[]): boolean {
   const route = segments.find((segment) => !segment.startsWith('('));
@@ -39,6 +41,7 @@ export function AuthSessionRedirect() {
     }
 
     if (!user && inApp) {
+      store.dispatch(groundedApi.util.resetApiState());
       router.replace(WELCOME);
     }
   }, [user, inApp]);
