@@ -41,6 +41,20 @@ public class DayInterpreterTests
     }
 
     [Fact]
+    public async Task Morning_titles_become_sentence_case()
+    {
+        var model = new StubLanguageModel(
+            """{"title":"heavy gym tuesday","commitments":[{"title":"go to the gym"},{"title":"Read"}]}""");
+        var interpreter = new DayInterpreter(model);
+
+        var draft = await interpreter.ReadMorningAsync("go to the gym and read");
+
+        Assert.Equal("Heavy gym tuesday", draft.Title);
+        Assert.Equal("Go to the gym", draft.Commitments[0].Title);
+        Assert.Equal("Read", draft.Commitments[1].Title);
+    }
+
+    [Fact]
     public async Task Morning_garbage_json_fails_interpret()
     {
         var interpreter = new DayInterpreter(new StubLanguageModel("not-json"));

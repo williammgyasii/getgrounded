@@ -55,8 +55,16 @@ public sealed class ElevenLabsSpeechToText(
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         var parsed = JsonSerializer.Deserialize<ScribeResponse>(body, Json);
         var text = parsed?.Text?.Trim() ?? "";
-        _log.LogInformation("scribe ok chars={Chars}", text.Length);
-        return new HearResult(text, null);
+        var words = (parsed?.Words ?? [])
+            .Where(word =>
+                (word.Type is null || word.Type == "word")
+                && !string.IsNullOrWhiteSpace(word.Text)
+                && word.Start is not null
+                && word.End is not null)
+            .Select(word => new SpokenWord(word.Text!.Trim(), word.Start!.Value, word.End!.Value))
+            .ToList();
+        _log.LogInformation("scribe ok chars={Chars} words={Words}", text.Length, words.Count);
+        return new HearResult(text, null, Words: words.Count == 0 ? null : words);
     }
 
     private static MultipartFormDataContent BuildForm(HearClip clip)
@@ -68,6 +76,7 @@ public sealed class ElevenLabsSpeechToText(
         var form = new MultipartFormDataContent();
         form.Add(new StringContent("scribe_v2"), "model_id");
         form.Add(new StringContent("eng"), "language_code");
+        form.Add(new StringContent("word"), "timestamps_granularity");
         form.Add(new StringContent("false"), "tag_audio_events");
         form.Add(audio, "file", FileName(type));
         return form;
@@ -88,5 +97,6 @@ public sealed class ElevenLabsSpeechToText(
             : "clip.m4a";
     }
 
-    private sealed record ScribeResponse(string? Text);
+    private sealed record ScribeResponse(string? Text, IReadOnlyList<ScribeWord>? Words);
+    private sealed record ScribeWord(string? Text, double? Start, double? End, string? Type);
 }

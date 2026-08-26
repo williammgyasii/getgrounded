@@ -37,13 +37,13 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
 
         var items = (payload.Commitments ?? [])
             .Select(row => new PlannedItem(
-                row.Title ?? "",
+                Titles.Sentence(row.Title),
                 row.PlannedDurationMinutes,
                 ReadStart(row),
                 row.LifeArea))
-            .Where(item => item.Title.Trim().Length > 0)
+            .Where(item => item.Title.Length > 0)
             .ToList();
-        var title = string.IsNullOrWhiteSpace(payload.Title) ? null : payload.Title.Trim();
+        var title = string.IsNullOrWhiteSpace(payload.Title) ? null : Titles.Sentence(payload.Title);
         return new MorningDraft(title, DayPlanner.LayOut(items, spokenMinute));
     }
 
@@ -99,7 +99,7 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
     }
 
     private const string MorningSystem =
-        "Return JSON only. Pick real commitments, not filler. plannedStart is 24h HH:mm local or null if they did not say a time. lifeArea is WORK, LEARNING, HEALTH, SPIRITUAL, RELATIONSHIPS, FINANCIAL, HOME, or PERSONAL. {\"title\":\"\",\"commitments\":[{\"title\":\"\",\"plannedStart\":null,\"plannedDurationMinutes\":null,\"lifeArea\":null}]}";
+        "Return JSON only. Pick real commitments, not filler. Title and commitment titles must be sentence case. plannedStart is 24h HH:mm local or null if they did not say a time. lifeArea is WORK, LEARNING, HEALTH, SPIRITUAL, RELATIONSHIPS, FINANCIAL, HOME, or PERSONAL. {\"title\":\"\",\"commitments\":[{\"title\":\"\",\"plannedStart\":null,\"plannedDurationMinutes\":null,\"lifeArea\":null}]}";
 
     private static string UserMorning(string transcript, MorningContext spoken, int spokenMinute)
     {

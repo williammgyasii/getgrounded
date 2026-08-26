@@ -72,6 +72,7 @@ internal static class BookSchema
             );
 
             ALTER TABLE voice_sessions ADD COLUMN IF NOT EXISTS storage_key TEXT NULL;
+            ALTER TABLE voice_sessions ADD COLUMN IF NOT EXISTS words JSONB NULL;
 
             CREATE TABLE IF NOT EXISTS commitments (
               id UUID PRIMARY KEY,

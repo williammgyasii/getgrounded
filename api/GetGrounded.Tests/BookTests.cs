@@ -59,6 +59,36 @@ public class BookTests
     }
 
     [Fact]
+    public async Task Morning_sentence_cases_saved_titles()
+    {
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+
+        var day = await book.PlanMorningAsync(
+            Person,
+            "UTC",
+            "go to the gym.",
+            [new PlannedItem("go to the gym")],
+            "heavy gym tuesday");
+
+        Assert.Equal("Heavy gym tuesday", day.Title);
+        Assert.Equal("Go to the gym", day.Commitments[0].Title);
+    }
+
+    [Fact]
+    public async Task Morning_keeps_spoken_words()
+    {
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+        var words = new[] { new SpokenWord("Gym", 0.1, 0.4), new SpokenWord("now", 0.5, 0.8) };
+
+        var day = await book.PlanMorningAsync(
+            Person, "UTC", "Gym now.", [new PlannedItem("Gym")], "Gym", "user/morning/clip.m4a", words);
+
+        Assert.Equal(2, day.Clips[0].Words!.Count);
+        Assert.Equal("Gym", day.Clips[0].Words![0].Text);
+        Assert.Equal(0.1, day.Clips[0].Words![0].Start);
+    }
+
+    [Fact]
     public async Task GetClipAsync_wrong_user_returns_null()
     {
         const string storageKey = "user/morning/clip.m4a";

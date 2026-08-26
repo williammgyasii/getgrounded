@@ -1,5 +1,7 @@
+using System.Text.Json;
 using GetGrounded.Application.Book;
 using GetGrounded.Application.Time;
+using GetGrounded.Application.Voice;
 using GetGrounded.Infrastructure.Data;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
@@ -8,6 +10,12 @@ namespace GetGrounded.Infrastructure.Book;
 
 public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
 {
+    private static readonly JsonSerializerOptions Json = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
+
     public async Task<DayRecord> SaveMorningAsync(
         Guid userId,
         DateOnly localDate,
@@ -16,6 +24,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         IReadOnlyList<PlannedItem> items,
         string? title = null,
         string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
@@ -31,7 +40,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             "MORNING_PLAN",
             transcript,
             cancellationToken,
-            storageKey);
+            storageKey,
+            words);
 
         if (items.Count > 0)
         {
@@ -473,12 +483,16 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         string kind,
         string transcript,
         CancellationToken cancellationToken,
-        string? storageKey = null)
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null)
     {
+        var packed = words is { Count: > 0 }
+            ? JsonSerializer.Serialize(words, Json)
+            : null;
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO voice_sessions (id, user_id, day_id, kind, transcript, processing_status, storage_key)
-            VALUES ($1, $2, $3, $4, $5, 'RECEIVED', $6)
+            INSERT INTO voice_sessions (id, user_id, day_id, kind, transcript, processing_status, storage_key, words)
+            VALUES ($1, $2, $3, $4, $5, 'RECEIVED', $6, $7::jsonb)
             """,
             connection, tx)
         {
@@ -489,7 +503,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
                 new NpgsqlParameter { Value = dayId },
                 new NpgsqlParameter { Value = kind },
                 new NpgsqlParameter { Value = transcript },
-                new NpgsqlParameter { Value = (object?)storageKey ?? DBNull.Value }
+                new NpgsqlParameter { Value = (object?)storageKey ?? DBNull.Value },
+                new NpgsqlParameter { Value = (object?)packed ?? DBNull.Value }
             }
         };
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -595,7 +610,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         var clips = new List<ClipRecord>();
         await using (var list = new NpgsqlCommand(
             """
-            SELECT id, kind, transcript, created_at, storage_key IS NOT NULL
+            SELECT id, kind, transcript, created_at, storage_key IS NOT NULL, words
             FROM voice_sessions
             WHERE user_id = $1 AND day_id = $2
             ORDER BY created_at
@@ -617,7 +632,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
                     reader.GetString(1),
                     reader.GetString(2),
                     reader.IsDBNull(3) ? null : reader.GetFieldValue<DateTimeOffset>(3),
-                    reader.GetBoolean(4)));
+                    reader.GetBoolean(4),
+                    ReadWords(reader, 5)));
             }
         }
 
@@ -657,6 +673,18 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             DateTime dateTime => DateOnly.FromDateTime(dateTime),
             _ => null
         };
+
+    private static IReadOnlyList<SpokenWord>? ReadWords(NpgsqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return null;
+        }
+
+        var raw = reader.GetString(ordinal);
+        var words = JsonSerializer.Deserialize<List<SpokenWord>>(raw, Json);
+        return words is { Count: > 0 } ? words : null;
+    }
 
     private async Task<T> WithConnection<T>(
         Func<NpgsqlConnection, Task<T>> work,

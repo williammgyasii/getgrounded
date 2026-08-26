@@ -75,6 +75,41 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
+        name  = "ELEVENLABS_AGENT_ID"
+        value = "agent_1601m0y7h0mxer8rpc06xrvcpn69"
+      }
+
+      env {
+        name  = "R2_ACCOUNT_ID"
+        value = var.r2_account_id
+      }
+
+      env {
+        name  = "R2_BUCKET"
+        value = var.r2_bucket
+      }
+
+      env {
+        name = "R2_ACCESS_KEY_ID"
+        value_source {
+          secret_key_ref {
+            secret  = var.r2_access_key_id_secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "R2_SECRET_ACCESS_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.r2_secret_access_key_secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = "get-ground-448ca"
       }

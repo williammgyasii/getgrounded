@@ -18,7 +18,7 @@ import { useTalkTake } from '@/components/talk/use-talk-take';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { deviceTimezone } from '@/lib/api';
+import { deviceTimezone, type SpokenWord } from '@/lib/api';
 import { clockToMinute, minuteToClock, spokenMinuteNow } from '@/lib/clock';
 import { rememberWords } from '@/lib/day-notes';
 import { layOut } from '@/lib/lay-out';
@@ -77,6 +77,7 @@ export function AddTakeSheet({
   const [lines, setLines] = useState<PlanLine[]>([]);
   const [dragging, setDragging] = useState(false);
   const [clipKey, setClipKey] = useState<string | null>(null);
+  const [clipWords, setClipWords] = useState<SpokenWord[] | null>(null);
   const keptWords = useRef('');
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export function AddTakeSheet({
   useEffect(() => {
     if (!open) {
       setClipKey(null);
+      setClipWords(null);
       return;
     }
     void AudioModule.requestRecordingPermissionsAsync().then((permission) => {
@@ -135,6 +137,9 @@ export function AddTakeSheet({
         }
         if (heard.storageKey) {
           setClipKey(heard.storageKey);
+        }
+        if (heard.words && heard.words.length > 0) {
+          setClipWords(heard.words);
         }
       }
       setNote('Fix anything we misheard, then continue.');
@@ -198,6 +203,7 @@ export function AddTakeSheet({
         transcript,
         title: null,
         storageKey: clipKey,
+        words: clipWords,
         commitments,
       }).unwrap();
       await rememberWords(dayDate, transcript);
@@ -215,6 +221,7 @@ export function AddTakeSheet({
     setNote('Tap the mic and speak.');
     setBusy(null);
     setClipKey(null);
+    setClipWords(null);
   }
 
   return (

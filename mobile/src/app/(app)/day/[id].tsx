@@ -88,6 +88,7 @@ export default function DayScreen() {
       transcript: clip.transcript,
       label: clip.kind === 'EVENING_REFLECTION' ? 'Evening' : `Take ${index + 1}`,
       playable: clip.playable === true,
+      words: clip.words,
     }));
   const transcripts = useMemo(
     () => (clips.length > 0 ? clips : savedWords),

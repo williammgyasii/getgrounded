@@ -1,7 +1,13 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { File } from 'expo-file-system';
 
-import { deviceTimezone, type DayRecord, type DeskRecord, type MorningDraft } from '@/lib/api';
+import {
+  deviceTimezone,
+  type DayRecord,
+  type DeskRecord,
+  type MorningDraft,
+  type SpokenWord,
+} from '@/lib/api';
 import { getFirebaseAuth } from '@/lib/firebase';
 
 function clipForm(uri: string, extra?: Record<string, string>): FormData {
@@ -54,6 +60,7 @@ export const groundedApi = createApi({
         transcript: string;
         title?: string | null;
         storageKey?: string | null;
+        words?: SpokenWord[] | null;
         commitments: {
           title: string;
           plannedDurationMinutes?: number | null;
@@ -62,10 +69,10 @@ export const groundedApi = createApi({
         }[];
       }
     >({
-      query: ({ timezone, transcript, title, storageKey, commitments }) => ({
+      query: ({ timezone, transcript, title, storageKey, words, commitments }) => ({
         url: '/days/morning',
         method: 'POST',
-        body: { timezone, transcript, title, storageKey, commitments },
+        body: { timezone, transcript, title, storageKey, words, commitments },
       }),
       invalidatesTags: ['Desk', 'History'],
     }),
@@ -90,7 +97,10 @@ export const groundedApi = createApi({
       }),
       invalidatesTags: ['Desk', 'History'],
     }),
-    hearClip: build.mutation<{ transcript: string; storageKey?: string }, { uri: string }>({
+    hearClip: build.mutation<
+      { transcript: string; storageKey?: string; words?: SpokenWord[] },
+      { uri: string }
+    >({
       query: ({ uri }) => ({
         url: '/voice/hear',
         method: 'POST',

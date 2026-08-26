@@ -28,15 +28,16 @@ public sealed class BookService(IBookStore book, IClock clock, IAudioStore? audi
         IReadOnlyList<PlannedItem> items,
         string? title = null,
         string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default)
     {
         RequireSpeech(transcript);
         var localDate = LocalDay.From(timezone, clock.UtcNow);
         var planned = items
-            .Select(item => item with { Title = item.Title.Trim() })
+            .Select(item => item with { Title = Titles.Sentence(item.Title) })
             .Where(item => item.Title.Length > 0)
             .ToList();
-        var named = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        var named = string.IsNullOrWhiteSpace(title) ? null : Titles.Sentence(title);
 
         var day = await book.SaveMorningAsync(
             userId,
@@ -46,6 +47,7 @@ public sealed class BookService(IBookStore book, IClock clock, IAudioStore? audi
             planned,
             named,
             storageKey,
+            words,
             cancellationToken);
         _log.LogInformation(
             "morning saved user={UserId} date={Date} items={Items} titled={Titled}",

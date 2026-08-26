@@ -1,3 +1,5 @@
+using GetGrounded.Application.Voice;
+
 namespace GetGrounded.Application.Book;
 
 public interface IBookStore
@@ -10,6 +12,7 @@ public interface IBookStore
         IReadOnlyList<PlannedItem> items,
         string? title = null,
         string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default);
 
     Task<DayRecord?> SaveEveningAsync(

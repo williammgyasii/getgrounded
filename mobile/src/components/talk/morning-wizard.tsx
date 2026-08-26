@@ -30,7 +30,7 @@ import { useTalkTake } from '@/components/talk/use-talk-take';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { deviceTimezone } from '@/lib/api';
+import { deviceTimezone, type SpokenWord } from '@/lib/api';
 import { clockToMinute, minuteToClock, spokenMinuteNow } from '@/lib/clock';
 import { rememberWords } from '@/lib/day-notes';
 import { layOut } from '@/lib/lay-out';
@@ -117,6 +117,7 @@ export function MorningWizard() {
   const [checkError, setCheckError] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [clipKey, setClipKey] = useState<string | null>(null);
+  const [clipWords, setClipWords] = useState<SpokenWord[] | null>(null);
   const keptWords = useRef('');
   const extractedFor = useRef('');
 
@@ -196,6 +197,9 @@ export function MorningWizard() {
       }
       if (heard.storageKey) {
         setClipKey(heard.storageKey);
+      }
+      if (heard.words && heard.words.length > 0) {
+        setClipWords(heard.words);
       }
       setNote('Fix anything we misheard, then continue.');
     } catch (error) {
@@ -295,10 +299,12 @@ export function MorningWizard() {
         transcript,
         title: dayTitle.trim() || null,
         storageKey: clipKey,
+        words: clipWords,
         commitments,
       }).unwrap();
       await rememberWords(saved.localDate, transcript);
       setClipKey(null);
+      setClipWords(null);
       setStep('record');
       router.navigate('/history' as Href);
     } catch (err) {

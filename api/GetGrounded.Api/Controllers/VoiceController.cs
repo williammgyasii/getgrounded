@@ -28,7 +28,7 @@ public sealed class VoiceController(AuthService auth, ClipService clips) : Contr
         try
         {
             var heard = await clips.HearAsync(user.Id, clip, cancellationToken);
-            return Ok(new { transcript = heard.Transcript, storageKey = heard.StorageKey });
+            return Ok(new { transcript = heard.Transcript, storageKey = heard.StorageKey, words = heard.Words });
         }
         catch (ArgumentException ex)
         {

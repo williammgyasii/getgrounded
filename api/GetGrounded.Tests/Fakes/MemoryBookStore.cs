@@ -1,4 +1,5 @@
 using GetGrounded.Application.Book;
+using GetGrounded.Application.Voice;
 
 namespace GetGrounded.Tests.Fakes;
 
@@ -15,6 +16,7 @@ public sealed class MemoryBookStore : IBookStore
         IReadOnlyList<PlannedItem> items,
         string? title = null,
         string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default)
     {
         _ = transcript;
@@ -31,7 +33,8 @@ public sealed class MemoryBookStore : IBookStore
             "MORNING_PLAN",
             transcript,
             DateTimeOffset.UtcNow,
-            storageKey is not null));
+            storageKey is not null,
+            words));
         foreach (var item in items)
         {
             day.Commitments.Add(new CommitmentRecord(

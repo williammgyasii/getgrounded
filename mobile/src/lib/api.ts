@@ -18,12 +18,19 @@ export type WinRecord = {
   title: string;
 };
 
+export type SpokenWord = {
+  text: string;
+  start: number;
+  end: number;
+};
+
 export type ClipRecord = {
   id: string;
   kind: string;
   transcript: string;
   createdAt?: string | null;
   playable?: boolean;
+  words?: SpokenWord[];
 };
 
 export type DayRecord = {

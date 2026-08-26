@@ -1,6 +1,7 @@
 using GetGrounded.Api.Http;
 using GetGrounded.Application.Auth;
 using GetGrounded.Application.Book;
+using GetGrounded.Application.Voice;
 using GetGrounded.Domain;
 using Microsoft.AspNetCore.Mvc;
 
@@ -73,6 +74,7 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
                 items,
                 body.Title,
                 body.StorageKey,
+                body.Words,
                 cancellationToken));
         }
         catch (ArgumentException ex)
@@ -191,7 +193,8 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         string Transcript,
         string? Title,
         IReadOnlyList<CommitmentDraft>? Commitments,
-        string? StorageKey = null);
+        string? StorageKey = null,
+        IReadOnlyList<SpokenWord>? Words = null);
 
     public sealed record EveningRequest(
         string Timezone,

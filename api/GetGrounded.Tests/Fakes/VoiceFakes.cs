@@ -3,14 +3,14 @@ using GetGrounded.Application.Voice;
 
 namespace GetGrounded.Tests.Fakes;
 
-public sealed class StubSpeechToText(string transcript) : ISpeechToText
+public sealed class StubSpeechToText(string transcript, IReadOnlyList<SpokenWord>? words = null) : ISpeechToText
 {
     public int Calls { get; private set; }
 
     public Task<HearResult> HearAsync(HearClip clip, CancellationToken cancellationToken)
     {
         Calls++;
-        return Task.FromResult(new HearResult(transcript, 0.9f));
+        return Task.FromResult(new HearResult(transcript, 0.9f, Words: words));
     }
 }
 

@@ -8,6 +8,7 @@ import { File, Paths } from 'expo-file-system';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { clipClock, currentWordIndex, type SpokenWord } from '@/lib/spoken-words';
 import { useLazyGetClipQuery } from '@/store/api';
 
 export type WordTake = {
@@ -15,6 +16,7 @@ export type WordTake = {
   transcript: string;
   label?: string;
   playable?: boolean;
+  words?: SpokenWord[];
 };
 
 export function DayWords({
@@ -33,6 +35,9 @@ export function DayWords({
   const loadedIdRef = useRef<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [current, setCurrent] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!open) {
@@ -43,6 +48,21 @@ export function DayWords({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!playingId) {
+      return;
+    }
+    const tick = setInterval(() => {
+      const player = playerRef.current;
+      if (!player) {
+        return;
+      }
+      setCurrent(player.currentTime ?? 0);
+      setDuration(player.duration ?? 0);
+    }, 100);
+    return () => clearInterval(tick);
+  }, [playingId]);
+
   function stopPlayer() {
     const player = playerRef.current;
     if (player) {
@@ -52,6 +72,8 @@ export function DayWords({
     playerRef.current = null;
     loadedIdRef.current = null;
     setPlayingId(null);
+    setCurrent(0);
+    setDuration(0);
   }
 
   async function togglePlay(id: string) {
@@ -82,7 +104,7 @@ export function DayWords({
       const player = createAudioPlayer({ uri: file.uri });
       player.addListener('playbackStatusUpdate', (status) => {
         if (status.didJustFinish) {
-          setPlayingId((current) => (current === id ? null : current));
+          setPlayingId((now) => (now === id ? null : now));
         }
       });
       player.play();
@@ -118,35 +140,92 @@ export function DayWords({
           {takes.length === 0 ? (
             <ThemedText themeColor="textSecondary">No recordings on this day yet.</ThemedText>
           ) : (
-            takes.map((take, index) => (
-              <View
-                key={take.id}
-                style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                {take.playable ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={playingId === take.id ? 'Pause' : 'Play'}
-                    disabled={loadingId === take.id}
-                    hitSlop={8}
-                    onPress={() => void togglePlay(take.id)}
-                    style={styles.play}>
-                    <SymbolView
-                      name={
-                        playingId === take.id
-                          ? { ios: 'pause.fill', android: 'pause', web: 'pause' }
-                          : { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' }
+            takes.map((take, index) => {
+              const playing = playingId === take.id;
+              const expanded = openIds[take.id] === true || playing;
+              const spoken = take.words ?? [];
+              const active = playing ? currentWordIndex(spoken, current) : -1;
+              const long = take.transcript.length > 90 || spoken.length > 12;
+              const shown = loadedIdRef.current === take.id ? current : 0;
+              const total = loadedIdRef.current === take.id ? duration : 0;
+              const ratio = total > 0 ? Math.min(1, shown / total) : 0;
+              return (
+                <View
+                  key={take.id}
+                  style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  {take.playable ? (
+                    <View style={styles.transport}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={playing ? 'Pause' : 'Play'}
+                        disabled={loadingId === take.id}
+                        hitSlop={8}
+                        onPress={() => void togglePlay(take.id)}
+                        style={styles.play}>
+                        <SymbolView
+                          name={
+                            playing
+                              ? { ios: 'pause.fill', android: 'pause', web: 'pause' }
+                              : { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' }
+                          }
+                          size={22}
+                          tintColor={theme.accent}
+                        />
+                      </Pressable>
+                      <View style={styles.meter}>
+                        <View style={[styles.track, { backgroundColor: theme.border }]}>
+                          <View
+                            style={[
+                              styles.fill,
+                              { width: `${ratio * 100}%`, backgroundColor: theme.accent },
+                            ]}
+                          />
+                        </View>
+                        <ThemedText type="small" themeColor="textSecondary" style={styles.clock}>
+                          {clipClock(shown)} / {clipClock(total)}
+                        </ThemedText>
+                      </View>
+                    </View>
+                  ) : null}
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {take.label ?? `Take ${index + 1}`}
+                  </ThemedText>
+                  {spoken.length > 0 ? (
+                    <ThemedText style={styles.words} numberOfLines={expanded ? undefined : 2}>
+                      {spoken.map((word, wordIndex) => (
+                        <ThemedText
+                          key={`${take.id}-${wordIndex}`}
+                          style={[
+                            styles.words,
+                            wordIndex === active ? { color: theme.accent, fontFamily: FontFamily.semibold } : null,
+                          ]}>
+                          {wordIndex === 0 ? word.text : ` ${word.text}`}
+                        </ThemedText>
+                      ))}
+                    </ThemedText>
+                  ) : (
+                    <ThemedText style={styles.words} numberOfLines={expanded ? undefined : 2}>
+                      {take.transcript}
+                    </ThemedText>
+                  )}
+                  {long ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() =>
+                        setOpenIds((currentOpen) => ({
+                          ...currentOpen,
+                          [take.id]: !expanded,
+                        }))
                       }
-                      size={22}
-                      tintColor={theme.accent}
-                    />
-                  </Pressable>
-                ) : null}
-                <ThemedText type="small" themeColor="textSecondary">
-                  {take.label ?? `Take ${index + 1}`}
-                </ThemedText>
-                <ThemedText style={styles.words}>{take.transcript}</ThemedText>
-              </View>
-            ))
+                      hitSlop={8}>
+                      <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                        {expanded ? 'Show less' : 'Show full transcript'}
+                      </ThemedText>
+                    </Pressable>
+                  ) : null}
+                </View>
+              );
+            })
           )}
         </ScrollView>
       </View>
@@ -187,12 +266,32 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: Spacing.two,
   },
+  transport: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
   play: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'flex-start',
+  },
+  meter: {
+    flex: 1,
+    gap: 6,
+  },
+  track: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  clock: {
+    fontFamily: FontFamily.medium,
   },
   words: {
     fontFamily: FontFamily.medium,

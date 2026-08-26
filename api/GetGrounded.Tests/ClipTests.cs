@@ -40,12 +40,58 @@ public class ClipTests
         Assert.Equal(HttpStatusCode.OK, heard.StatusCode);
         Assert.Equal("Gym at 7 and read.", body!.Transcript);
         Assert.False(string.IsNullOrWhiteSpace(body.StorageKey));
+        Assert.Null(body.Words);
         var store = factory.Services.GetRequiredService<IAudioStore>();
         var saved = await store.GetAsync(body.StorageKey, CancellationToken.None);
         Assert.NotNull(saved);
         Assert.Equal(1, speech.Calls);
         Assert.Null(desk!.Today);
         Assert.Equal(0, desk.StreakDays);
+    }
+
+    [Fact]
+    public async Task Hear_returns_spoken_words()
+    {
+        var speech = new StubSpeechToText(
+            "Gym now.",
+            [new SpokenWord("Gym", 0.1, 0.4), new SpokenWord("now", 0.5, 0.8)]);
+        using var factory = CreateFactory(speech, new StubLanguageModel("""{"commitments":[{"title":"Gym"}]}"""));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        using var form = AudioForm("MORNING_PLAN", [1, 2, 3, 4]);
+        var heard = await client.PostAsync("/voice/hear", form);
+        var body = await heard.Content.ReadFromJsonAsync<HearBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, heard.StatusCode);
+        Assert.Equal(2, body!.Words!.Count);
+        Assert.Equal("Gym", body.Words[0].Text);
+        Assert.Equal(0.1, body.Words[0].Start);
+    }
+
+    [Fact]
+    public async Task Morning_save_keeps_spoken_words()
+    {
+        using var factory = CreateFactory(
+            new StubSpeechToText("Gym now."),
+            new StubLanguageModel("""{"commitments":[{"title":"Gym"}]}"""));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Gym now.",
+            title = "Gym",
+            storageKey = "user/morning/clip.m4a",
+            words = new[] { new { text = "Gym", start = 0.1, end = 0.4 } },
+            commitments = new[] { new { title = "Gym" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, written.StatusCode);
+        Assert.Single(day!.Clips[0].Words!);
+        Assert.Equal("Gym", day.Clips[0].Words![0].Text);
     }
 
     [Fact]
@@ -299,7 +345,7 @@ public class ClipTests
         });
     }
 
-    private sealed record HearBody(string Transcript, string? StorageKey);
+    private sealed record HearBody(string Transcript, string? StorageKey, IReadOnlyList<WordBody>? Words);
     private sealed record ExtractBody(string? Title, IReadOnlyList<ExtractItem> Commitments);
     private sealed record ExtractItem(
         string Title,
@@ -308,6 +354,7 @@ public class ClipTests
         string? LifeArea);
     private sealed record DeskBody(int StreakDays, DayBody? Today);
     private sealed record DayBody(IReadOnlyList<CommitmentBody> Commitments, IReadOnlyList<ClipPlayBody> Clips);
-    private sealed record ClipPlayBody(Guid Id, bool Playable);
+    private sealed record ClipPlayBody(Guid Id, bool Playable, IReadOnlyList<WordBody>? Words);
+    private sealed record WordBody(string Text, double Start, double End);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);
 }

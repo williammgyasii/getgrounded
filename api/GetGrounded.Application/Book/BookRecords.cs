@@ -1,3 +1,5 @@
+using GetGrounded.Application.Voice;
+
 namespace GetGrounded.Application.Book;
 
 public sealed record PlannedItem(
@@ -26,7 +28,13 @@ public sealed record CommitmentRecord(
 
 public sealed record WinRecord(Guid Id, string Title);
 
-public sealed record ClipRecord(Guid Id, string Kind, string Transcript, DateTimeOffset? CreatedAt = null, bool Playable = false);
+public sealed record ClipRecord(
+    Guid Id,
+    string Kind,
+    string Transcript,
+    DateTimeOffset? CreatedAt = null,
+    bool Playable = false,
+    IReadOnlyList<SpokenWord>? Words = null);
 
 public sealed record ClipPointer(Guid Id, string? StorageKey);
 
