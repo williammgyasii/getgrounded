@@ -42,6 +42,7 @@ public class DaysTests
         {
             timezone = "UTC",
             transcript = "Gym at 7, read 20 minutes, ship the API test.",
+            title = "Heavy gym Tuesday",
             commitments = new[]
             {
                 new { title = "Gym" },
@@ -52,6 +53,7 @@ public class DaysTests
         var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
         Assert.Equal(HttpStatusCode.OK, written.StatusCode);
         Assert.NotNull(day);
+        Assert.Equal("Heavy gym Tuesday", day.Title);
         Assert.Equal(3, day.Commitments.Count);
 
         var evening = await client.PostAsJsonAsync("/days/evening", new
@@ -101,7 +103,7 @@ public class DaysTests
     }
 
     private sealed record DeskBody(int StreakDays, DayBody? Today);
-    private sealed record DayBody(IReadOnlyList<CommitmentBody> Commitments, IReadOnlyList<WinBody> Wins);
+    private sealed record DayBody(string? Title, IReadOnlyList<CommitmentBody> Commitments, IReadOnlyList<WinBody> Wins);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);
     private sealed record WinBody(string Title);
 }

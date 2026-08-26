@@ -33,7 +33,7 @@ export default function HistoryScreen() {
   return (
     <ThemedView style={styles.screen}>
       <HomeTopBar
-        title="History"
+        title="Work"
         subtitle="What you said vs what you did."
         initial={initialFrom(user?.email)}
         onAvatarPress={() => router.push('/you')}
@@ -64,7 +64,7 @@ export default function HistoryScreen() {
                   borderColor: theme.border,
                 },
               ]}>
-              <ThemedText type="smallBold">{day.localDate}</ThemedText>
+              <ThemedText type="smallBold">{day.title ?? day.localDate}</ThemedText>
               {day.commitments.map((item) => (
                 <ThemedText key={item.id} themeColor="textSecondary" style={styles.copy}>
                   {item.title} · {item.status.toLowerCase()}

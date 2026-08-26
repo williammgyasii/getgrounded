@@ -10,6 +10,32 @@ public sealed class ClipService(
 {
     public const int MaxBytes = 2 * 1024 * 1024;
 
+    public async Task<HearResult> HearAsync(
+        Guid userId,
+        HearClip clip,
+        CancellationToken cancellationToken)
+    {
+        RequireClip(clip);
+        await audio.PutAsync(userId, "MORNING_PLAN", clip, cancellationToken);
+        var heard = await speech.HearAsync(clip, cancellationToken);
+        if (string.IsNullOrWhiteSpace(heard.Transcript))
+        {
+            throw new EmptySpeechException();
+        }
+
+        return heard;
+    }
+
+    public async Task<MorningDraft> ExtractMorningAsync(string transcript, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+        {
+            throw new ArgumentException("Transcript is required.", nameof(transcript));
+        }
+
+        return await interpreter.ReadMorningAsync(transcript, cancellationToken);
+    }
+
     public async Task<DeskRecord> CaptureAsync(
         Guid userId,
         string kind,
@@ -17,11 +43,40 @@ public sealed class ClipService(
         HearClip clip,
         CancellationToken cancellationToken)
     {
-        if (kind is not ("MORNING_PLAN" or "EVENING_REFLECTION"))
+        if (kind == "MORNING_PLAN")
+        {
+            throw new ArgumentException("Morning uses hear, extract, then /days/morning.", nameof(kind));
+        }
+
+        if (kind is not "EVENING_REFLECTION")
         {
             throw new ArgumentException("Unknown clip kind.", nameof(kind));
         }
 
+        RequireClip(clip);
+        await audio.PutAsync(userId, kind, clip, cancellationToken);
+        var heard = await speech.HearAsync(clip, cancellationToken);
+        if (string.IsNullOrWhiteSpace(heard.Transcript))
+        {
+            throw new EmptySpeechException();
+        }
+
+        var desk = await book.GetDeskAsync(userId, timezone, cancellationToken);
+        var planned = desk.Today?.Commitments ?? [];
+        var draft = await interpreter.ReadEveningAsync(heard.Transcript, planned, cancellationToken);
+        await book.ReflectEveningAsync(
+            userId,
+            timezone,
+            heard.Transcript,
+            draft.Outcomes,
+            draft.Wins,
+            cancellationToken);
+
+        return await book.GetDeskAsync(userId, timezone, cancellationToken);
+    }
+
+    private static void RequireClip(HearClip clip)
+    {
         if (clip.Bytes.Length == 0)
         {
             throw new ArgumentException("Audio is required.", nameof(clip));
@@ -36,33 +91,5 @@ public sealed class ClipService(
         {
             throw new ArgumentException("Unsupported audio type.", nameof(clip));
         }
-
-        await audio.PutAsync(userId, kind, clip, cancellationToken);
-        var heard = await speech.HearAsync(clip, cancellationToken);
-        if (string.IsNullOrWhiteSpace(heard.Transcript))
-        {
-            throw new EmptySpeechException();
-        }
-
-        if (kind == "MORNING_PLAN")
-        {
-            var draft = await interpreter.ReadMorningAsync(heard.Transcript, cancellationToken);
-            await book.PlanMorningAsync(userId, timezone, heard.Transcript, draft.Commitments, cancellationToken);
-        }
-        else
-        {
-            var desk = await book.GetDeskAsync(userId, timezone, cancellationToken);
-            var planned = desk.Today?.Commitments ?? [];
-            var draft = await interpreter.ReadEveningAsync(heard.Transcript, planned, cancellationToken);
-            await book.ReflectEveningAsync(
-                userId,
-                timezone,
-                heard.Transcript,
-                draft.Outcomes,
-                draft.Wins,
-                cancellationToken);
-        }
-
-        return await book.GetDeskAsync(userId, timezone, cancellationToken);
     }
 }

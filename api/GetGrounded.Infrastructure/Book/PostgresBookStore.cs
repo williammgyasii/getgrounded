@@ -13,13 +13,14 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         string timezone,
         string transcript,
         IReadOnlyList<PlannedItem> items,
+        string? title = null,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
         await BookSchema.EnsureAsync(connection, cancellationToken);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
 
-        var dayId = await UpsertDayAsync(connection, tx, userId, localDate, timezone, cancellationToken);
+        var dayId = await UpsertDayAsync(connection, tx, userId, localDate, timezone, title, cancellationToken);
         await InsertSessionAsync(
             connection,
             tx,
@@ -78,7 +79,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         await BookSchema.EnsureAsync(connection, cancellationToken);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
 
-        var dayId = await UpsertDayAsync(connection, tx, userId, localDate, timezone, cancellationToken);
+        var dayId = await UpsertDayAsync(connection, tx, userId, localDate, timezone, null, cancellationToken);
         await InsertSessionAsync(
             connection,
             tx,
@@ -246,14 +247,18 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         Guid userId,
         DateOnly localDate,
         string timezone,
+        string? title,
         CancellationToken cancellationToken)
     {
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO days (id, user_id, local_date, timezone, showed_up)
-            VALUES ($1, $2, $3, $4, true)
+            INSERT INTO days (id, user_id, local_date, timezone, showed_up, title)
+            VALUES ($1, $2, $3, $4, true, $5)
             ON CONFLICT (user_id, local_date) DO UPDATE
-            SET timezone = EXCLUDED.timezone, showed_up = true, updated_at = now()
+            SET timezone = EXCLUDED.timezone,
+                showed_up = true,
+                title = COALESCE(EXCLUDED.title, days.title),
+                updated_at = now()
             RETURNING id
             """,
             connection, tx)
@@ -263,7 +268,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
                 new NpgsqlParameter { Value = Guid.CreateVersion7() },
                 new NpgsqlParameter { Value = userId },
                 new NpgsqlParameter { Value = localDate },
-                new NpgsqlParameter { Value = timezone }
+                new NpgsqlParameter { Value = timezone },
+                new NpgsqlParameter { Value = (object?)title ?? DBNull.Value }
             }
         };
 
@@ -306,7 +312,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
     {
         await using var day = new NpgsqlCommand(
             """
-            SELECT id, timezone, showed_up
+            SELECT id, timezone, showed_up, title
             FROM days
             WHERE user_id = $1 AND local_date = $2
             """,
@@ -322,6 +328,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         Guid dayId;
         string timezone;
         bool showedUp;
+        string? title;
         await using (var reader = await day.ExecuteReaderAsync(cancellationToken))
         {
             if (!await reader.ReadAsync(cancellationToken))
@@ -332,6 +339,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             dayId = reader.GetGuid(0);
             timezone = reader.GetString(1);
             showedUp = reader.GetBoolean(2);
+            title = reader.IsDBNull(3) ? null : reader.GetString(3);
         }
 
         var commitments = new List<CommitmentRecord>();
@@ -387,7 +395,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             }
         }
 
-        return new DayRecord(dayId, localDate, timezone, showedUp, commitments, wins);
+        return new DayRecord(dayId, localDate, timezone, showedUp, title, commitments, wins);
     }
 
     private async Task<T> WithConnection<T>(

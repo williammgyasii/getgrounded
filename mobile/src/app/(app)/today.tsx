@@ -136,7 +136,7 @@ export default function TodayScreen() {
               borderColor: theme.border,
             },
           ]}>
-          <ThemedText type="smallBold">Today</ThemedText>
+          <ThemedText type="smallBold">{desk?.today?.title ?? 'Today'}</ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.prompt}>
             {summarize(desk?.today ?? null)}
           </ThemedText>

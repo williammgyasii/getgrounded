@@ -22,7 +22,30 @@ public class ClipTests
     };
 
     [Fact]
-    public async Task Morning_clip_calls_plan_once_and_returns_the_desk()
+    public async Task Hear_returns_transcript_and_does_not_book()
+    {
+        var speech = new StubSpeechToText("Gym at 7 and read.");
+        var model = new StubLanguageModel(
+            """{"commitments":[{"title":"Gym"},{"title":"Read"}]}""");
+        using var factory = CreateFactory(speech, model);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        using var form = AudioForm("MORNING_PLAN", [1, 2, 3, 4]);
+        var heard = await client.PostAsync("/voice/hear", form);
+        var body = await heard.Content.ReadFromJsonAsync<HearBody>(Json);
+        var deskResponse = await client.GetAsync("/days/today?timezone=UTC");
+        var desk = await deskResponse.Content.ReadFromJsonAsync<DeskBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, heard.StatusCode);
+        Assert.Equal("Gym at 7 and read.", body!.Transcript);
+        Assert.Equal(1, speech.Calls);
+        Assert.Null(desk!.Today);
+        Assert.Equal(0, desk.StreakDays);
+    }
+
+    [Fact]
+    public async Task Morning_clip_does_not_book()
     {
         var speech = new StubSpeechToText("Gym at 7 and read.");
         var model = new StubLanguageModel(
@@ -33,15 +56,11 @@ public class ClipTests
 
         using var form = AudioForm("MORNING_PLAN", [1, 2, 3, 4]);
         var response = await client.PostAsync("/voice/clips", form);
-        var desk = await response.Content.ReadFromJsonAsync<DeskBody>(Json);
+        var deskResponse = await client.GetAsync("/days/today?timezone=UTC");
+        var desk = await deskResponse.Content.ReadFromJsonAsync<DeskBody>(Json);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.NotNull(desk);
-        Assert.Equal(1, desk.StreakDays);
-        Assert.Equal(2, desk.Today!.Commitments.Count);
-        Assert.Equal("Gym", desk.Today.Commitments[0].Title);
-        Assert.Equal("Read", desk.Today.Commitments[1].Title);
-        Assert.Equal(1, speech.Calls);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Null(desk!.Today);
     }
 
     [Fact]
@@ -67,7 +86,7 @@ public class ClipTests
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
 
         var response = await client.PostAsync(
-            "/voice/clips",
+            "/voice/hear",
             AudioForm("MORNING_PLAN", new byte[ClipService.MaxBytes + 1]));
 
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
@@ -82,9 +101,33 @@ public class ClipTests
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
 
-        var response = await client.PostAsync("/voice/clips", AudioForm("MORNING_PLAN", [1, 2]));
+        var response = await client.PostAsync("/voice/hear", AudioForm("MORNING_PLAN", [1, 2]));
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Extract_morning_returns_title_and_commitments_without_booking()
+    {
+        var model = new StubLanguageModel(
+            """{"title":"Heavy gym Tuesday","commitments":[{"title":"Gym"},{"title":"Read"}]}""");
+        using var factory = CreateFactory(new StubSpeechToText("x"), model);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var response = await client.PostAsJsonAsync("/voice/extract", new
+        {
+            kind = "MORNING_PLAN",
+            transcript = "Gym at 7 and read."
+        });
+        var draft = await response.Content.ReadFromJsonAsync<ExtractBody>(Json);
+        var deskResponse = await client.GetAsync("/days/today?timezone=UTC");
+        var desk = await deskResponse.Content.ReadFromJsonAsync<DeskBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Heavy gym Tuesday", draft!.Title);
+        Assert.Equal(["Gym", "Read"], draft.Commitments.Select(item => item.Title).ToArray());
+        Assert.Null(desk!.Today);
     }
 
     [Fact]
@@ -96,7 +139,11 @@ public class ClipTests
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
 
-        var response = await client.PostAsync("/voice/clips", AudioForm("MORNING_PLAN", [1, 2]));
+        var response = await client.PostAsJsonAsync("/voice/extract", new
+        {
+            kind = "MORNING_PLAN",
+            transcript = "hello"
+        });
 
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
     }
@@ -108,7 +155,11 @@ public class ClipTests
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
 
-        var response = await client.PostAsync("/voice/clips", AudioForm("MORNING_PLAN", [1, 2]));
+        var response = await client.PostAsJsonAsync("/voice/extract", new
+        {
+            kind = "MORNING_PLAN",
+            transcript = "hello"
+        });
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
@@ -143,6 +194,9 @@ public class ClipTests
         });
     }
 
+    private sealed record HearBody(string Transcript);
+    private sealed record ExtractBody(string? Title, IReadOnlyList<ExtractItem> Commitments);
+    private sealed record ExtractItem(string Title, int? PlannedDurationMinutes);
     private sealed record DeskBody(int StreakDays, DayBody? Today);
     private sealed record DayBody(IReadOnlyList<CommitmentBody> Commitments);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);

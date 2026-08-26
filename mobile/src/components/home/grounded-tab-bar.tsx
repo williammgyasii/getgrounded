@@ -47,7 +47,7 @@ export function GroundedTabBar({ state }: GroundedTabBarProps) {
         onPress={() => router.navigate('/today' as Href)}
       />
       <TabItem
-        label="History"
+        label="Work"
         focused={current === 'history'}
         icon={historyIcon}
         onPress={() => router.navigate('/history' as Href)}
@@ -125,7 +125,7 @@ function RaisedTalk({ focused, onPress }: { focused: boolean; onPress: () => voi
       <Animated.View style={bulge}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Talk"
+          accessibilityLabel="Plan"
           onPressIn={() => {
             scale.value = withSpring(0.92);
           }}
@@ -154,7 +154,7 @@ function RaisedTalk({ focused, onPress }: { focused: boolean; onPress: () => voi
         </Pressable>
       </Animated.View>
       <ThemedText type="small" style={[styles.label, { color: focused ? theme.accent : theme.textSecondary }]}>
-        Talk
+        Plan
       </ThemedText>
     </View>
   );

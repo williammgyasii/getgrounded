@@ -6,7 +6,7 @@ import { getFirebaseAuth } from '@/lib/firebase';
 import { store } from '@/store';
 import { groundedApi } from '@/store/api';
 
-const HOME = '/today' as Href;
+const HOME = '/talk' as Href;
 const WELCOME = '/' as Href;
 const APP_ROUTES = new Set(['today', 'history', 'talk', 'review', 'you']);
 

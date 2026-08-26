@@ -20,8 +20,14 @@ export type DayRecord = {
   localDate: string;
   timezone: string;
   showedUp: boolean;
+  title: string | null;
   commitments: CommitmentRecord[];
   wins: WinRecord[];
+};
+
+export type MorningDraft = {
+  title: string | null;
+  commitments: { title: string; plannedDurationMinutes: number | null }[];
 };
 
 export type DeskRecord = {

@@ -21,6 +21,7 @@ public sealed class BookService(IBookStore book, IClock clock)
         string timezone,
         string transcript,
         IReadOnlyList<PlannedItem> items,
+        string? title = null,
         CancellationToken cancellationToken = default)
     {
         RequireSpeech(transcript);
@@ -29,6 +30,7 @@ public sealed class BookService(IBookStore book, IClock clock)
             .Select(item => item with { Title = item.Title.Trim() })
             .Where(item => item.Title.Length > 0)
             .ToList();
+        var named = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
 
         return await book.SaveMorningAsync(
             userId,
@@ -36,6 +38,7 @@ public sealed class BookService(IBookStore book, IClock clock)
             timezone.Trim(),
             transcript,
             planned,
+            named,
             cancellationToken);
     }
 

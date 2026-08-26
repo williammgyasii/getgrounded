@@ -12,10 +12,16 @@ public sealed class MemoryBookStore : IBookStore
         string timezone,
         string transcript,
         IReadOnlyList<PlannedItem> items,
+        string? title = null,
         CancellationToken cancellationToken = default)
     {
         _ = transcript;
         var day = GetOrCreate(userId, localDate, timezone);
+        if (title is not null)
+        {
+            day.Title = title;
+        }
+
         foreach (var item in items)
         {
             day.Commitments.Add(new CommitmentRecord(
@@ -127,9 +133,10 @@ public sealed class MemoryBookStore : IBookStore
         public DateOnly LocalDate { get; init; }
         public string Timezone { get; set; } = "";
         public bool ShowedUp { get; set; }
+        public string? Title { get; set; }
         public List<CommitmentRecord> Commitments { get; } = [];
         public List<WinRecord> Wins { get; } = [];
 
-        public DayRecord ToRecord() => new(Id, LocalDate, Timezone, ShowedUp, Commitments.ToList(), Wins.ToList());
+        public DayRecord ToRecord() => new(Id, LocalDate, Timezone, ShowedUp, Title, Commitments.ToList(), Wins.ToList());
     }
 }

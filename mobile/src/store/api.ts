@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-import { type DayRecord, type DeskRecord } from '@/lib/api';
+import { type DayRecord, type DeskRecord, type MorningDraft } from '@/lib/api';
 import { getFirebaseAuth } from '@/lib/firebase';
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://dev.get-grounded.app';
@@ -32,16 +32,17 @@ export const groundedApi = createApi({
     }),
     planMorning: build.mutation<
       DayRecord,
-      { timezone: string; transcript: string; titles: string[] }
+      {
+        timezone: string;
+        transcript: string;
+        title?: string | null;
+        commitments: { title: string; plannedDurationMinutes?: number | null }[];
+      }
     >({
-      query: ({ timezone, transcript, titles }) => ({
+      query: ({ timezone, transcript, title, commitments }) => ({
         url: '/days/morning',
         method: 'POST',
-        body: {
-          timezone,
-          transcript,
-          commitments: titles.map((title) => ({ title })),
-        },
+        body: { timezone, transcript, title, commitments },
       }),
       invalidatesTags: ['Desk', 'History'],
     }),
@@ -66,6 +67,41 @@ export const groundedApi = createApi({
       }),
       invalidatesTags: ['Desk', 'History'],
     }),
+    hearClip: build.mutation<{ transcript: string }, { uri: string }>({
+      query: ({ uri }) => {
+        const body = new FormData();
+        body.append('audio', {
+          uri,
+          name: 'clip.m4a',
+          type: 'audio/mp4',
+        } as unknown as Blob);
+        return { url: '/voice/hear', method: 'POST', body };
+      },
+    }),
+    extractMorning: build.mutation<MorningDraft, { transcript: string }>({
+      query: ({ transcript }) => ({
+        url: '/voice/extract',
+        method: 'POST',
+        body: { kind: 'MORNING_PLAN', transcript },
+      }),
+    }),
+    postClip: build.mutation<
+      DeskRecord,
+      { kind: 'EVENING_REFLECTION'; timezone: string; uri: string }
+    >({
+      query: ({ kind, timezone, uri }) => {
+        const body = new FormData();
+        body.append('kind', kind);
+        body.append('timezone', timezone);
+        body.append('audio', {
+          uri,
+          name: 'clip.m4a',
+          type: 'audio/mp4',
+        } as unknown as Blob);
+        return { url: '/voice/clips', method: 'POST', body };
+      },
+      invalidatesTags: ['Desk', 'History'],
+    }),
   }),
 });
 
@@ -74,4 +110,7 @@ export const {
   useGetHistoryQuery,
   usePlanMorningMutation,
   useReflectEveningMutation,
+  useHearClipMutation,
+  useExtractMorningMutation,
+  usePostClipMutation,
 } = groundedApi;

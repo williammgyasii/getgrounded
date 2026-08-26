@@ -30,6 +30,23 @@ public class BookTests
     }
 
     [Fact]
+    public async Task Morning_saves_the_day_title()
+    {
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+
+        var day = await book.PlanMorningAsync(
+            Person,
+            "UTC",
+            "Gym and read.",
+            [new PlannedItem("Gym"), new PlannedItem("Read")],
+            "Heavy gym Tuesday");
+
+        Assert.Equal("Heavy gym Tuesday", day.Title);
+        var desk = await book.GetDeskAsync(Person, "UTC");
+        Assert.Equal("Heavy gym Tuesday", desk.Today!.Title);
+    }
+
+    [Fact]
     public async Task Evening_reconciles_outcomes_and_records_wins()
     {
         var store = new MemoryBookStore();

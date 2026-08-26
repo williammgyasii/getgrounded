@@ -27,7 +27,7 @@ export default function SignUpScreen() {
     setBusy(true);
     try {
       await signUpWithEmail(email, password);
-      router.replace('/today' as Href);
+      router.replace('/talk' as Href);
     } catch (error) {
       const message =
         error instanceof FirebaseError

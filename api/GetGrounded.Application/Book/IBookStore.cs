@@ -8,6 +8,7 @@ public interface IBookStore
         string timezone,
         string transcript,
         IReadOnlyList<PlannedItem> items,
+        string? title = null,
         CancellationToken cancellationToken = default);
 
     Task<DayRecord?> SaveEveningAsync(

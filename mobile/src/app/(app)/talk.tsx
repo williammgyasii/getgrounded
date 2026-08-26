@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TalkLog } from '@/components/talk/talk-log';
+import { MorningWizard } from '@/components/talk/morning-wizard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -16,11 +16,11 @@ export default function TalkScreen() {
           styles.body,
           { paddingTop: insets.top + Spacing.five, paddingBottom: Spacing.five },
         ]}>
-        <ThemedText style={styles.title}>Talk</ThemedText>
+        <ThemedText style={styles.title}>Plan your day</ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-          Type the day for now. Each line is a commitment. Wins start with win:.
+          Speak it. Check it. We’ll book it.
         </ThemedText>
-        <TalkLog />
+        <MorningWizard />
       </ScrollView>
     </ThemedView>
   );

@@ -9,11 +9,12 @@ public class DayInterpreterTests
     public async Task Morning_json_becomes_planned_items()
     {
         var model = new StubLanguageModel(
-            """{"commitments":[{"title":"Read","plannedDurationMinutes":20,"confidence":0.9}]}""");
+            """{"title":"Reading morning","commitments":[{"title":"Read","plannedDurationMinutes":20,"confidence":0.9}]}""");
         var interpreter = new DayInterpreter(model);
 
         var draft = await interpreter.ReadMorningAsync("I will read 20 minutes");
 
+        Assert.Equal("Reading morning", draft.Title);
         Assert.Single(draft.Commitments);
         Assert.Equal("Read", draft.Commitments[0].Title);
         Assert.Equal(20, draft.Commitments[0].PlannedDurationMinutes);

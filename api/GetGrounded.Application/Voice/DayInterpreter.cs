@@ -33,7 +33,8 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
             .Select(row => new PlannedItem(row.Title ?? "", row.PlannedDurationMinutes))
             .Where(item => item.Title.Trim().Length > 0)
             .ToList();
-        return new MorningDraft(items);
+        var title = string.IsNullOrWhiteSpace(payload.Title) ? null : payload.Title.Trim();
+        return new MorningDraft(title, items);
     }
 
     public async Task<EveningDraft> ReadEveningAsync(
@@ -88,7 +89,7 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
     }
 
     private const string MorningSystem =
-        "Return JSON only: {\"commitments\":[{\"title\":\"\",\"plannedDurationMinutes\":null,\"confidence\":0}]}";
+        "Return JSON only: {\"title\":\"\",\"commitments\":[{\"title\":\"\",\"plannedDurationMinutes\":null,\"confidence\":0}]}";
 
     private static string EveningSystem(IReadOnlyList<CommitmentRecord> planned)
     {
@@ -96,7 +97,7 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         return $"Return JSON only. Outcome ids must be from: {ids}. Statuses: COMPLETED,PARTIAL,MISSED,RESCHEDULED,CANCELLED,BLOCKED. {{\"outcomes\":[],\"wins\":[]}}";
     }
 
-    private sealed record MorningPayload(IReadOnlyList<MorningRow>? Commitments);
+    private sealed record MorningPayload(string? Title, IReadOnlyList<MorningRow>? Commitments);
     private sealed record MorningRow(string? Title, int? PlannedDurationMinutes, float? Confidence);
     private sealed record EveningPayload(IReadOnlyList<EveningRow>? Outcomes, IReadOnlyList<WinRow>? Wins);
     private sealed record EveningRow(string? Id, string? Status, int? ActualDurationMinutes, string? Reason);

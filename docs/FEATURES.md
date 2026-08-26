@@ -10,24 +10,24 @@ This file is the product map for navigation. The full inventory is [`FEATURE-CAT
 
 ## What the five are for
 
-The bar has **five** destinations. The center one is Talk: raised, bulging, animated. Talk stays **in** the tab shell. The bar never disappears.
+The bar has **five** destinations. The center one is Plan: raised, bulging, animated. Plan stays **in** the tab shell. The bar never disappears.
 
 The names come from surfaces in the product, not from habit-tracker chrome (no “Day”, no “Stay”).
 
 ```text
-Today     History     [ Talk ]     Review     You
-  desk     ledger      voice        week      account
+Today     Work     [ Plan ]     Review     You
+  desk    ledger    morning      week      account
 ```
 
 | Tab | Product job | First screen (now) | Later, same tab |
 |---|---|---|---|
 | **Today** | Live this day. Greeting, showing-up streak, remaining commitments, yesterday’s honest score. Mic CTA: Plan today / Reflect / Update my day. | Desk you already have, copy from the home mock in the master prompt. | Commitments with COMPLETED / PARTIAL / MISSED. Unplanned wins. Recovery welcome-back. |
-| **History** | Promise ledger: what I said vs what I did. | Empty: “No days spoken yet.” | Daily summaries, past check-ins, “Finish portfolio moved 6 times.” |
-| **Talk** | The voice OS. Morning plan, midday update, evening reflection, coach, Ask My Life. One tap from a notification. | Typed stand-in. Tabs stay. | `POST /voice/clips` Quick Log + later Gemini Live coach. |
+| **Work** | Promise ledger: what I said vs what I did. Route stays `history`. | Empty: “No days spoken yet.” | Daily summaries, past check-ins. |
+| **Plan** | Morning wizard. Midday and evening later. | Record → Your words → Thinking → Check the plan → Save. | Coach, Ask My Life. |
 | **Review** | Follow-through and the week. Facts from SQL, words from AI. | Empty: “A week appears after you show up.” | Weekly review, 84% not 0%, pattern lines, conversational week. |
 | **You** | The person, not the tasks. | Email + sign out. | Coach style, quiet hours, audio retention, partners, call opt-in. |
 
-Talk is a **tab**, not a new page. Remove `href: null` and the “hide bar on Talk” branch.
+Plan is a **tab**, not a new page. Route stays `talk`.
 
 ---
 
@@ -51,11 +51,10 @@ The raised mic is forest, not black.
 
 ```text
 Sign in
-  → Today
-  → Talk (morning): "Here's what I'm doing."
-  → live the day (optional Talk: update)
-  → Talk (evening): "Here's what happened."
-  → Today / History show the bookkeeping
+  → Plan (morning): "Here's what I'm doing."
+  → live the day
+  → Plan (evening, later): "Here's what happened."
+  → Today / Work show the bookkeeping
   → showing-up streak moves if they were honest
 ```
 

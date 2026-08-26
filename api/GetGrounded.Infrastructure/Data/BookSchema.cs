@@ -49,10 +49,13 @@ internal static class BookSchema
               local_date DATE NOT NULL,
               timezone TEXT NOT NULL,
               showed_up BOOLEAN NOT NULL DEFAULT false,
+              title TEXT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
               updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
               UNIQUE (user_id, local_date)
             );
+
+            ALTER TABLE days ADD COLUMN IF NOT EXISTS title TEXT NULL;
 
             CREATE TABLE IF NOT EXISTS voice_sessions (
               id UUID PRIMARY KEY,
@@ -99,16 +102,18 @@ internal static class BookSchema
               ON days (user_id, local_date DESC);
             CREATE INDEX IF NOT EXISTS days_user_showed_up_idx
               ON days (user_id, local_date DESC) WHERE showed_up;
-            CREATE INDEX IF NOT EXISTS commitments_day_sort_idx
-              ON commitments (day_id, sort_order);
-            CREATE INDEX IF NOT EXISTS commitments_user_day_idx
-              ON commitments (user_id, day_id);
-            CREATE INDEX IF NOT EXISTS wins_user_day_idx
-              ON wins (user_id, day_id);
+            CREATE INDEX IF NOT EXISTS commitments_user_day_sort_idx
+              ON commitments (user_id, day_id, sort_order, created_at);
+            CREATE INDEX IF NOT EXISTS wins_user_day_created_idx
+              ON wins (user_id, day_id, created_at);
             CREATE INDEX IF NOT EXISTS voice_sessions_user_created_idx
               ON voice_sessions (user_id, created_at DESC);
             CREATE INDEX IF NOT EXISTS voice_sessions_day_idx
               ON voice_sessions (day_id);
+
+            DROP INDEX IF EXISTS commitments_day_sort_idx;
+            DROP INDEX IF EXISTS commitments_user_day_idx;
+            DROP INDEX IF EXISTS wins_user_day_idx;
             """,
             connection);
         await create.ExecuteNonQueryAsync(cancellationToken);

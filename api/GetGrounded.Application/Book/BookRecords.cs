@@ -24,6 +24,7 @@ public sealed record DayRecord(
     DateOnly LocalDate,
     string Timezone,
     bool ShowedUp,
+    string? Title,
     IReadOnlyList<CommitmentRecord> Commitments,
     IReadOnlyList<WinRecord> Wins);
 

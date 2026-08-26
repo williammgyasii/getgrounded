@@ -128,9 +128,8 @@ Unplanned truth. Not a failed commitment.
 | `days_user_local_date_uidx` | `days (user_id, local_date)` UNIQUE | Today |
 | `days_user_date_desc_idx` | `days (user_id, local_date DESC)` | History |
 | `days_user_showed_up_idx` | `days (user_id, local_date DESC) WHERE showed_up` | Streak walk |
-| `commitments_day_sort_idx` | `commitments (day_id, sort_order)` | Today's plan |
-| `commitments_user_day_idx` | `commitments (user_id, day_id)` | Ledger |
-| `wins_user_day_idx` | `wins (user_id, day_id)` | Ledger |
+| `commitments_user_day_sort_idx` | `commitments (user_id, day_id, sort_order, created_at)` | Today's plan |
+| `wins_user_day_created_idx` | `wins (user_id, day_id, created_at)` | Ledger |
 | `voice_sessions_user_created_idx` | `voice_sessions (user_id, created_at DESC)` | Recent voice |
 | `voice_sessions_day_idx` | `voice_sessions (day_id)` | Sessions for a day |
 

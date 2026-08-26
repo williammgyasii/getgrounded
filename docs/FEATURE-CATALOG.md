@@ -1,6 +1,6 @@
 # GetGrounded — full feature catalog
 
-Every product feature from the master build prompt. Navigation lives in [`FEATURES.md`](./FEATURES.md) (Today · History · Talk · Review · You). This file is the inventory.
+Every product feature from the master build prompt. Navigation lives in [`FEATURES.md`](./FEATURES.md) (Today · Work · Plan · Review · You). This file is the inventory.
 
 Philosophy: **Stop tracking. Start talking.** The user lives. They speak. The software books. Voice is the command interface, not a microphone glued onto a to-do list.
 

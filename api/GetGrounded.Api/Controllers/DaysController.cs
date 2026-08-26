@@ -62,7 +62,13 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
             var items = (body.Commitments ?? [])
                 .Select(item => new PlannedItem(item.Title, item.PlannedDurationMinutes))
                 .ToList();
-            return Ok(await book.PlanMorningAsync(user.Id, body.Timezone, body.Transcript, items, cancellationToken));
+            return Ok(await book.PlanMorningAsync(
+                user.Id,
+                body.Timezone,
+                body.Transcript,
+                items,
+                body.Title,
+                cancellationToken));
         }
         catch (ArgumentException ex)
         {
@@ -113,6 +119,7 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
     public sealed record MorningRequest(
         string Timezone,
         string Transcript,
+        string? Title,
         IReadOnlyList<CommitmentDraft>? Commitments);
 
     public sealed record EveningRequest(
