@@ -1,56 +1,83 @@
-# Welcome to your Expo app 👋
+# GetGrounded
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Voice-first consistency companion.
 
-## Get started
+**Stop tracking. Start talking. GetGrounded.**
 
-1. Install dependencies
+## Repo layout
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+mobile/                  Expo app (React Native + TypeScript)
+api/GetGrounded.Domain   Domain rules and entities
+api/GetGrounded.Api      HTTP adapters
+api/GetGrounded.Tests    Tests first, then implementation
+infra/terraform          R2 + Render objects (`dev`, `prod`)
+infra/cloudflare         Worker / Workflow source (Wrangler)
+infra/firebase           Auth, Analytics, FCM, App Check
+infra/elevenlabs         Voice agents (CLI)
+docs/                    Specs and plans
+.github/workflows        CI
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+PostgreSQL is the source of truth. The mobile app never talks to the database directly.
 
-### Other setup steps
+## Tooling
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Already on this machine:
 
-## Learn more
+| Tool | Why |
+|---|---|
+| Node 26 / npm 11 | Expo |
+| .NET 10 | API |
+| Docker | API container |
+| Terraform 1.15 | R2 + Render objects (`dev`, `prod`) |
+| GitHub CLI (`gh`) as `williammgyasii` | repo + PRs |
+| EAS CLI 22 | Expo development builds later |
+| Render CLI 2.24 | API + Postgres hosting |
+| Wrangler 4.12 | Cloudflare Workers / R2 |
+| Firebase CLI 15 | Auth / App Check later |
+| ElevenLabs CLI 0.5 | Agents as code later |
+| `dotnet ef` | migrations later |
+| Postgres client | local DB later |
+| Xcode | iOS simulator |
 
-To learn more about developing your project with Expo, look at the following resources:
+Install when we need native binaries, not now:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- Java — Android builds
+- CocoaPods — iOS native modules
+- Watchman — faster Metro reloads
 
-## Join the community
+Firebase CLI warns that it prefers Node 20/22/24. We can switch the mobile toolchain to Node 22 LTS later if that becomes a problem.
 
-Join our community of developers creating universal apps.
+Check versions:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+bash scripts/check-tooling.sh
+```
+
+## Run locally
+
+```bash
+cd mobile
+npm install
+npx expo start
+```
+
+```bash
+cd api
+dotnet run --project GetGrounded.Api
+```
+
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) currently:
+
+- builds the API
+- typechecks the Expo app
+- formats and validates Terraform (`dev` and `prod`)
+
+Domain tests are not in CI yet. They are still red on purpose until the first types exist.
+
+## GitHub
+
+Personal repo under `williammgyasii`. Commits are authored as William Gyasi.

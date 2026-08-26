@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="GetGrounded.Api/GetGrounded.Api.csproj" />
+  <Project Path="GetGrounded.Domain/GetGrounded.Domain.csproj" />
+  <Project Path="GetGrounded.Tests/GetGrounded.Tests.csproj" />
+</Solution>

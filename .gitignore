@@ -1,15 +1,27 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# OS
+.DS_Store
 
-# dependencies
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+**/appsettings.*.local.json
+**/firebase-adminsdk*.json
+
+# Dependencies
 node_modules/
 
-# Expo
+# Expo / Metro
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+.metro-health-check*
+mobile/ios
+mobile/android
 
-# Native
+# Native signing
 .kotlin/
 *.orig.*
 *.jks
@@ -18,26 +30,33 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
-# Metro
-.metro-health-check*
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
 
-# debug
+# Debug logs
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
+# TypeScript
 *.tsbuildinfo
 
-example
+# Tooling
+.idea/
 
-# generated native folders
-/ios
-/android
+# Terraform — commit .terraform.lock.hcl, never state
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+!*.tfvars.example
