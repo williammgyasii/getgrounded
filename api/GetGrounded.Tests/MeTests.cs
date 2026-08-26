@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using GetGrounded.Application.Auth;
+using GetGrounded.Domain;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -86,9 +87,9 @@ public class MeTests
     {
         public List<string> Ensured { get; } = [];
 
-        public Task EnsureAsync(string userId, CancellationToken cancellationToken = default)
+        public Task EnsureAsync(User user, CancellationToken cancellationToken = default)
         {
-            Ensured.Add(userId);
+            Ensured.Add(user.Id);
             return Task.CompletedTask;
         }
     }

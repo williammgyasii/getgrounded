@@ -4,7 +4,7 @@
 GetGrounded.Api             Controllers + Program (HTTP only)
 GetGrounded.Application     services (AuthService, HealthService)
 GetGrounded.Infrastructure  Firebase + Postgres
-GetGrounded.Domain          rules — no HTTP, no SQL
+GetGrounded.Domain          User — no HTTP, no SQL
 GetGrounded.Tests           failing tests first
 ```
 

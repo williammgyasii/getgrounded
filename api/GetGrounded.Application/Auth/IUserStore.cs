@@ -1,6 +1,8 @@
+using GetGrounded.Domain;
+
 namespace GetGrounded.Application.Auth;
 
 public interface IUserStore
 {
-    Task EnsureAsync(string userId, CancellationToken cancellationToken = default);
+    Task EnsureAsync(User user, CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,5 @@
 using GetGrounded.Application.Auth;
+using GetGrounded.Domain;
 using GetGrounded.Infrastructure.Data;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
@@ -7,7 +8,7 @@ namespace GetGrounded.Infrastructure.Auth;
 
 public sealed class PostgresUserStore(IConfiguration configuration) : IUserStore
 {
-    public async Task EnsureAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task EnsureAsync(User user, CancellationToken cancellationToken = default)
     {
         var connectionString = configuration["DATABASE_URL"];
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -37,7 +38,7 @@ public sealed class PostgresUserStore(IConfiguration configuration) : IUserStore
             """,
             connection)
         {
-            Parameters = { new NpgsqlParameter { Value = userId } }
+            Parameters = { new NpgsqlParameter { Value = user.Id } }
         };
         await upsert.ExecuteNonQueryAsync(cancellationToken);
     }

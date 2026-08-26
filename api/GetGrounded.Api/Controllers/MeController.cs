@@ -22,9 +22,9 @@ public sealed class MeController(AuthService auth) : ControllerBase
             return Unauthorized();
         }
 
-        var userId = await auth.IdentifyAsync(token, cancellationToken);
-        return userId is null
+        var user = await auth.IdentifyAsync(token, cancellationToken);
+        return user is null
             ? Unauthorized()
-            : Ok(new { userId });
+            : Ok(new { userId = user.Id });
     }
 }
