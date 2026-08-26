@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GetGrounded.Application.Book;
+using GetGrounded.Application.Time;
 
 namespace GetGrounded.Application.Voice;
 
@@ -15,9 +16,14 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         "COMPLETED", "PARTIAL", "MISSED", "RESCHEDULED", "CANCELLED", "BLOCKED"
     ];
 
-    public async Task<MorningDraft> ReadMorningAsync(string transcript, CancellationToken cancellationToken = default)
+    public async Task<MorningDraft> ReadMorningAsync(
+        string transcript,
+        MorningContext? context = null,
+        CancellationToken cancellationToken = default)
     {
-        var raw = await model.CompleteJsonAsync(MorningSystem, transcript, cancellationToken);
+        var spoken = context ?? new MorningContext("UTC", DateTimeOffset.UtcNow);
+        var spokenMinute = LocalClock.MinuteOfDay(spoken.Timezone, spoken.SpokenAt);
+        var raw = await model.CompleteJsonAsync(MorningSystem, UserMorning(transcript, spoken, spokenMinute), cancellationToken);
         MorningPayload payload;
         try
         {
@@ -30,11 +36,15 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         }
 
         var items = (payload.Commitments ?? [])
-            .Select(row => new PlannedItem(row.Title ?? "", row.PlannedDurationMinutes))
+            .Select(row => new PlannedItem(
+                row.Title ?? "",
+                row.PlannedDurationMinutes,
+                ReadStart(row),
+                row.LifeArea))
             .Where(item => item.Title.Trim().Length > 0)
             .ToList();
         var title = string.IsNullOrWhiteSpace(payload.Title) ? null : payload.Title.Trim();
-        return new MorningDraft(title, items);
+        return new MorningDraft(title, DayPlanner.LayOut(items, spokenMinute));
     }
 
     public async Task<EveningDraft> ReadEveningAsync(
@@ -89,7 +99,30 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
     }
 
     private const string MorningSystem =
-        "Return JSON only: {\"title\":\"\",\"commitments\":[{\"title\":\"\",\"plannedDurationMinutes\":null,\"confidence\":0}]}";
+        "Return JSON only. Pick real commitments, not filler. plannedStart is 24h HH:mm local or null if they did not say a time. lifeArea is WORK, LEARNING, HEALTH, SPIRITUAL, RELATIONSHIPS, FINANCIAL, HOME, or PERSONAL. {\"title\":\"\",\"commitments\":[{\"title\":\"\",\"plannedStart\":null,\"plannedDurationMinutes\":null,\"lifeArea\":null}]}";
+
+    private static string UserMorning(string transcript, MorningContext spoken, int spokenMinute)
+    {
+        var hour = spokenMinute / 60;
+        var minute = spokenMinute % 60;
+        return $"Spoken at {hour:00}:{minute:00} {spoken.Timezone}. Remaining day ends 22:00. Leave plannedStart null when they did not name a clock time. Transcript:\n{transcript}";
+    }
+
+    private static int? ReadStart(MorningRow row)
+    {
+        if (row.PlannedStartMinute is int numbered && numbered is >= 0 and < 24 * 60)
+        {
+            return numbered;
+        }
+
+        var raw = row.PlannedStart?.Trim();
+        if (string.IsNullOrEmpty(raw))
+        {
+            return null;
+        }
+
+        return TimeOnly.TryParse(raw, out var time) ? time.Hour * 60 + time.Minute : null;
+    }
 
     private static string EveningSystem(IReadOnlyList<CommitmentRecord> planned)
     {
@@ -98,7 +131,13 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
     }
 
     private sealed record MorningPayload(string? Title, IReadOnlyList<MorningRow>? Commitments);
-    private sealed record MorningRow(string? Title, int? PlannedDurationMinutes, float? Confidence);
+    private sealed record MorningRow(
+        string? Title,
+        int? PlannedDurationMinutes,
+        string? PlannedStart,
+        int? PlannedStartMinute,
+        string? LifeArea,
+        float? Confidence);
     private sealed record EveningPayload(IReadOnlyList<EveningRow>? Outcomes, IReadOnlyList<WinRow>? Wins);
     private sealed record EveningRow(string? Id, string? Status, int? ActualDurationMinutes, string? Reason);
     private sealed record WinRow(string? Title);

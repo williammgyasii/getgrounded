@@ -21,6 +21,26 @@ public class DayInterpreterTests
     }
 
     [Fact]
+    public async Task Morning_untimed_items_are_scheduled_from_when_they_spoke()
+    {
+        var model = new StubLanguageModel(
+            """{"title":"Workday","commitments":[{"title":"Gym","plannedStart":"07:00","plannedDurationMinutes":60,"lifeArea":"HEALTH"},{"title":"Get lunch"},{"title":"Ship the test","plannedStart":"14:00","plannedDurationMinutes":90,"lifeArea":"WORK"}]}""");
+        var interpreter = new DayInterpreter(model);
+        var spoken = new DateTimeOffset(2026, 8, 26, 12, 0, 0, TimeSpan.Zero);
+
+        var draft = await interpreter.ReadMorningAsync(
+            "Gym at 7, lunch, ship the test at 2",
+            new MorningContext("UTC", spoken));
+
+        Assert.Equal("Workday", draft.Title);
+        Assert.Equal(3, draft.Commitments.Count);
+        Assert.Equal(7 * 60, draft.Commitments[0].PlannedStartMinute);
+        Assert.Equal(12 * 60, draft.Commitments[1].PlannedStartMinute);
+        Assert.Equal(45, draft.Commitments[1].PlannedDurationMinutes);
+        Assert.Equal(14 * 60, draft.Commitments[2].PlannedStartMinute);
+    }
+
+    [Fact]
     public async Task Morning_garbage_json_fails_interpret()
     {
         var interpreter = new DayInterpreter(new StubLanguageModel("not-json"));

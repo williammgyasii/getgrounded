@@ -8,7 +8,7 @@ import { groundedApi } from '@/store/api';
 
 const HOME = '/talk' as Href;
 const WELCOME = '/' as Href;
-const APP_ROUTES = new Set(['today', 'history', 'talk', 'review', 'you']);
+const APP_ROUTES = new Set(['today', 'history', 'talk', 'review', 'you', 'day']);
 
 function isAppRoute(segments: string[]): boolean {
   const route = segments.find((segment) => !segment.startsWith('('));

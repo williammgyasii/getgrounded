@@ -11,9 +11,10 @@ type HomeTopBarProps = {
   subtitle: string;
   initial: string;
   onAvatarPress: () => void;
+  onBack?: () => void;
 };
 
-export function HomeTopBar({ title, subtitle, initial, onAvatarPress }: HomeTopBarProps) {
+export function HomeTopBar({ title, subtitle, initial, onAvatarPress, onBack }: HomeTopBarProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
 
@@ -27,6 +28,20 @@ export function HomeTopBar({ title, subtitle, initial, onAvatarPress }: HomeTopB
           borderBottomColor: theme.border,
         },
       ]}>
+      {onBack ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to Plan"
+          hitSlop={12}
+          onPress={onBack}
+          style={styles.back}>
+          <SymbolView
+            name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }}
+            size={20}
+            tintColor={theme.text}
+          />
+        </Pressable>
+      ) : null}
       <View style={styles.copy}>
         <ThemedText style={styles.title}>{title}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
@@ -62,6 +77,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.three,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  back: {
+    width: 36,
+    height: 36,
+    marginRight: Spacing.one,
+    justifyContent: 'center',
   },
   copy: {
     flex: 1,

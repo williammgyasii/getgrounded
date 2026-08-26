@@ -33,7 +33,11 @@ public sealed class ClipService(
         return heard;
     }
 
-    public async Task<MorningDraft> ExtractMorningAsync(string transcript, CancellationToken cancellationToken)
+    public async Task<MorningDraft> ExtractMorningAsync(
+        string transcript,
+        string? timezone,
+        DateTimeOffset? spokenAt,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(transcript))
         {
@@ -41,7 +45,10 @@ public sealed class ClipService(
         }
 
         _log.LogInformation("extract started chars={Chars}", transcript.Length);
-        var draft = await interpreter.ReadMorningAsync(transcript, cancellationToken);
+        var context = new MorningContext(
+            string.IsNullOrWhiteSpace(timezone) ? "UTC" : timezone.Trim(),
+            spokenAt ?? DateTimeOffset.UtcNow);
+        var draft = await interpreter.ReadMorningAsync(transcript, context, cancellationToken);
         _log.LogInformation("extract ok title={HasTitle} items={Items}", draft.Title is not null, draft.Commitments.Count);
         return draft;
     }

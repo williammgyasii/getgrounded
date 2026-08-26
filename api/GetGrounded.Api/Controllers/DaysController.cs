@@ -60,7 +60,11 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         try
         {
             var items = (body.Commitments ?? [])
-                .Select(item => new PlannedItem(item.Title, item.PlannedDurationMinutes))
+                .Select(item => new PlannedItem(
+                    item.Title,
+                    item.PlannedDurationMinutes,
+                    item.PlannedStartMinute,
+                    item.LifeArea))
                 .ToList();
             return Ok(await book.PlanMorningAsync(
                 user.Id,
@@ -105,6 +109,71 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         }
     }
 
+    [HttpPatch("{dayId:guid}")]
+    public async Task<IActionResult> Rename(Guid dayId, [FromBody] RenameRequest body, CancellationToken cancellationToken)
+    {
+        var user = await IdentifyAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var day = await book.RenameDayAsync(user.Id, dayId, body.Title, cancellationToken);
+            return day is null ? NotFound() : Ok(day);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("{dayId:guid}")]
+    public async Task<IActionResult> Remove(Guid dayId, CancellationToken cancellationToken)
+    {
+        var user = await IdentifyAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        return await book.RemoveDayAsync(user.Id, dayId, cancellationToken) ? NoContent() : NotFound();
+    }
+
+    [HttpPatch("commitments/{commitmentId:guid}")]
+    public async Task<IActionResult> Mark(Guid commitmentId, [FromBody] MarkRequest body, CancellationToken cancellationToken)
+    {
+        var user = await IdentifyAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var day = await book.MarkCommitmentAsync(user.Id, commitmentId, body.Status, cancellationToken);
+            return day is null ? NotFound() : Ok(day);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("commitments/{commitmentId:guid}")]
+    public async Task<IActionResult> RemoveCommitment(Guid commitmentId, CancellationToken cancellationToken)
+    {
+        var user = await IdentifyAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var day = await book.RemoveCommitmentAsync(user.Id, commitmentId, cancellationToken);
+        return day is null ? NotFound() : Ok(day);
+    }
+
     private async Task<User?> IdentifyAsync(CancellationToken cancellationToken)
     {
         var token = Bearer.Read(Request);
@@ -128,7 +197,13 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         IReadOnlyList<OutcomeDraft>? Outcomes,
         IReadOnlyList<WinDraft>? Wins);
 
-    public sealed record CommitmentDraft(string Title, int? PlannedDurationMinutes);
+    public sealed record CommitmentDraft(
+        string Title,
+        int? PlannedDurationMinutes,
+        int? PlannedStartMinute,
+        string? LifeArea);
     public sealed record OutcomeDraft(Guid Id, string Status, int? ActualDurationMinutes, string? Reason);
     public sealed record WinDraft(string Title);
+    public sealed record RenameRequest(string Title);
+    public sealed record MarkRequest(string Status);
 }

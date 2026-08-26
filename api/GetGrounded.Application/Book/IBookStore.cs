@@ -34,4 +34,23 @@ public interface IBookStore
     Task<IReadOnlyList<DateOnly>> GetShowedUpDatesAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
+
+    Task<DayRecord?> RenameDayAsync(
+        Guid userId,
+        Guid dayId,
+        string title,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> RemoveDayAsync(Guid userId, Guid dayId, CancellationToken cancellationToken = default);
+
+    Task<DayRecord?> MarkCommitmentAsync(
+        Guid userId,
+        Guid commitmentId,
+        string status,
+        CancellationToken cancellationToken = default);
+
+    Task<DayRecord?> RemoveCommitmentAsync(
+        Guid userId,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default);
 }

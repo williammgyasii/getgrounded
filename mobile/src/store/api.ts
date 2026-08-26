@@ -53,7 +53,12 @@ export const groundedApi = createApi({
         timezone: string;
         transcript: string;
         title?: string | null;
-        commitments: { title: string; plannedDurationMinutes?: number | null }[];
+        commitments: {
+          title: string;
+          plannedDurationMinutes?: number | null;
+          plannedStartMinute?: number | null;
+          lifeArea?: string | null;
+        }[];
       }
     >({
       query: ({ timezone, transcript, title, commitments }) => ({
@@ -91,12 +96,45 @@ export const groundedApi = createApi({
         body: clipForm(uri),
       }),
     }),
-    extractMorning: build.mutation<MorningDraft, { transcript: string }>({
-      query: ({ transcript }) => ({
+    extractMorning: build.mutation<
+      MorningDraft,
+      { transcript: string; timezone: string; spokenAt: string }
+    >({
+      query: ({ transcript, timezone, spokenAt }) => ({
         url: '/voice/extract',
         method: 'POST',
-        body: { kind: 'MORNING_PLAN', transcript },
+        body: { kind: 'MORNING_PLAN', transcript, timezone, spokenAt },
       }),
+    }),
+    renameDay: build.mutation<DayRecord, { id: string; title: string }>({
+      query: ({ id, title }) => ({
+        url: `/days/${id}`,
+        method: 'PATCH',
+        body: { title },
+      }),
+      invalidatesTags: ['Desk', 'History'],
+    }),
+    removeDay: build.mutation<void, string>({
+      query: (id) => ({
+        url: `/days/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Desk', 'History'],
+    }),
+    markCommitment: build.mutation<DayRecord, { id: string; status: string }>({
+      query: ({ id, status }) => ({
+        url: `/days/commitments/${id}`,
+        method: 'PATCH',
+        body: { status },
+      }),
+      invalidatesTags: ['Desk', 'History'],
+    }),
+    removeCommitment: build.mutation<DayRecord, string>({
+      query: (id) => ({
+        url: `/days/commitments/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Desk', 'History'],
     }),
     postClip: build.mutation<
       DeskRecord,
@@ -120,4 +158,8 @@ export const {
   useHearClipMutation,
   useExtractMorningMutation,
   usePostClipMutation,
+  useRenameDayMutation,
+  useRemoveDayMutation,
+  useMarkCommitmentMutation,
+  useRemoveCommitmentMutation,
 } = groundedApi;

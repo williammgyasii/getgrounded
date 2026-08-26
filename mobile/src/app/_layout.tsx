@@ -1,4 +1,5 @@
 import {
+  Poppins_400Regular,
   Poppins_500Medium,
   Poppins_600SemiBold,
   Poppins_700Bold,
@@ -6,6 +7,8 @@ import {
 } from '@expo-google-fonts/poppins';
 import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet } from 'react-native';
 
 import { Provider } from 'react-redux';
 
@@ -30,6 +33,7 @@ const GroundedTheme = {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
     Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
@@ -40,18 +44,26 @@ export default function RootLayout() {
   }
 
   return (
-    <Provider store={store}>
-      <ThemeProvider value={GroundedTheme}>
-        <AuthSessionRedirect />
-        <AnimatedSplashOverlay />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            contentStyle: { backgroundColor: Colors.light.background },
-          }}
-        />
-      </ThemeProvider>
-    </Provider>
+    <GestureHandlerRootView style={styles.root}>
+      <Provider store={store}>
+        <ThemeProvider value={GroundedTheme}>
+          <AuthSessionRedirect />
+          <AnimatedSplashOverlay />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: Colors.light.background },
+            }}
+          />
+        </ThemeProvider>
+      </Provider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

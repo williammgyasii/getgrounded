@@ -108,6 +108,49 @@ public sealed class BookService(IBookStore book, IClock clock, ILogger<BookServi
         return await book.GetDaysAsync(userId, today.AddDays(-29), today, cancellationToken);
     }
 
+    public Task<DayRecord?> RenameDayAsync(
+        Guid userId,
+        Guid dayId,
+        string title,
+        CancellationToken cancellationToken = default)
+    {
+        var named = title.Trim();
+        if (named.Length == 0)
+        {
+            throw new ArgumentException("Title is required.", nameof(title));
+        }
+
+        return book.RenameDayAsync(userId, dayId, named, cancellationToken);
+    }
+
+    public Task<bool> RemoveDayAsync(Guid userId, Guid dayId, CancellationToken cancellationToken = default)
+    {
+        return book.RemoveDayAsync(userId, dayId, cancellationToken);
+    }
+
+    public Task<DayRecord?> MarkCommitmentAsync(
+        Guid userId,
+        Guid commitmentId,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        var next = status.Trim().ToUpperInvariant();
+        if (!Statuses.Contains(next))
+        {
+            throw new ArgumentException($"Unknown commitment status '{status}'.", nameof(status));
+        }
+
+        return book.MarkCommitmentAsync(userId, commitmentId, next, cancellationToken);
+    }
+
+    public Task<DayRecord?> RemoveCommitmentAsync(
+        Guid userId,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default)
+    {
+        return book.RemoveCommitmentAsync(userId, commitmentId, cancellationToken);
+    }
+
     private static void RequireSpeech(string transcript)
     {
         if (string.IsNullOrWhiteSpace(transcript))

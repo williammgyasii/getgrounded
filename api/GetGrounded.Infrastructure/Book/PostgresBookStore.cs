@@ -1,4 +1,5 @@
 using GetGrounded.Application.Book;
+using GetGrounded.Application.Time;
 using GetGrounded.Infrastructure.Data;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
@@ -37,15 +38,19 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             var dayIds = Enumerable.Repeat(dayId, items.Count).ToArray();
             var titles = items.Select(item => item.Title).ToArray();
             var durations = items.Select(item => (int?)item.PlannedDurationMinutes).ToArray();
+            var starts = items.Select(item => item.PlannedStartMinute is int minute
+                ? LocalClock.At(timezone, localDate, minute)
+                : (DateTimeOffset?)null).ToArray();
+            var areas = items.Select(item => (string?)item.LifeArea).ToArray();
             var sorts = Enumerable.Range(0, items.Count).ToArray();
 
             await using var insert = new NpgsqlCommand(
                 """
                 INSERT INTO commitments (
-                  id, user_id, day_id, title, status, planned_duration_minutes, source, sort_order)
-                SELECT u.id, u.user_id, u.day_id, u.title, 'PLANNED', u.mins, 'MORNING_EXTRACT', u.sort
-                FROM UNNEST($1::uuid[], $2::uuid[], $3::uuid[], $4::text[], $5::int[], $6::int[])
-                  AS u(id, user_id, day_id, title, mins, sort)
+                  id, user_id, day_id, title, status, planned_at, planned_duration_minutes, life_area, source, sort_order)
+                SELECT u.id, u.user_id, u.day_id, u.title, 'PLANNED', u.starts, u.mins, u.area, 'MORNING_EXTRACT', u.sort
+                FROM UNNEST($1::uuid[], $2::uuid[], $3::uuid[], $4::text[], $5::timestamptz[], $6::int[], $7::text[], $8::int[])
+                  AS u(id, user_id, day_id, title, starts, mins, area, sort)
                 """,
                 connection, tx)
             {
@@ -55,7 +60,9 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
                     new NpgsqlParameter { Value = userIds },
                     new NpgsqlParameter { Value = dayIds },
                     new NpgsqlParameter { Value = titles },
+                    new NpgsqlParameter { Value = starts },
                     new NpgsqlParameter { Value = durations },
+                    new NpgsqlParameter { Value = areas },
                     new NpgsqlParameter { Value = sorts }
                 }
             };
@@ -241,6 +248,121 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         return dates;
     }
 
+    public async Task<DayRecord?> RenameDayAsync(
+        Guid userId,
+        Guid dayId,
+        string title,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await BookSchema.EnsureAsync(connection, cancellationToken);
+        await using var command = new NpgsqlCommand(
+            """
+            UPDATE days
+            SET title = $1, updated_at = now()
+            WHERE id = $2 AND user_id = $3
+            RETURNING local_date
+            """,
+            connection)
+        {
+            Parameters =
+            {
+                new NpgsqlParameter { Value = title },
+                new NpgsqlParameter { Value = dayId },
+                new NpgsqlParameter { Value = userId }
+            }
+        };
+        var date = ReadDate(await command.ExecuteScalarAsync(cancellationToken));
+        return date is DateOnly localDate
+            ? await LoadDayAsync(connection, userId, localDate, cancellationToken)
+            : null;
+    }
+
+    public async Task<bool> RemoveDayAsync(Guid userId, Guid dayId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await BookSchema.EnsureAsync(connection, cancellationToken);
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+        foreach (var sql in new[]
+        {
+            "DELETE FROM commitments WHERE user_id = $1 AND day_id = $2",
+            "DELETE FROM wins WHERE user_id = $1 AND day_id = $2",
+            "DELETE FROM voice_sessions WHERE user_id = $1 AND day_id = $2",
+            "DELETE FROM days WHERE user_id = $1 AND id = $2"
+        })
+        {
+            await using var clear = new NpgsqlCommand(sql, connection, tx)
+            {
+                Parameters =
+                {
+                    new NpgsqlParameter { Value = userId },
+                    new NpgsqlParameter { Value = dayId }
+                }
+            };
+            await clear.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<DayRecord?> MarkCommitmentAsync(
+        Guid userId,
+        Guid commitmentId,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await BookSchema.EnsureAsync(connection, cancellationToken);
+        await using var command = new NpgsqlCommand(
+            """
+            UPDATE commitments
+            SET status = $1, updated_at = now()
+            WHERE id = $2 AND user_id = $3
+            RETURNING day_id
+            """,
+            connection)
+        {
+            Parameters =
+            {
+                new NpgsqlParameter { Value = status },
+                new NpgsqlParameter { Value = commitmentId },
+                new NpgsqlParameter { Value = userId }
+            }
+        };
+        var dayId = await command.ExecuteScalarAsync(cancellationToken);
+        return dayId is Guid id
+            ? await LoadDayByIdAsync(connection, userId, id, cancellationToken)
+            : null;
+    }
+
+    public async Task<DayRecord?> RemoveCommitmentAsync(
+        Guid userId,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await BookSchema.EnsureAsync(connection, cancellationToken);
+        await using var command = new NpgsqlCommand(
+            """
+            DELETE FROM commitments
+            WHERE id = $1 AND user_id = $2
+            RETURNING day_id
+            """,
+            connection)
+        {
+            Parameters =
+            {
+                new NpgsqlParameter { Value = commitmentId },
+                new NpgsqlParameter { Value = userId }
+            }
+        };
+        var dayId = await command.ExecuteScalarAsync(cancellationToken);
+        return dayId is Guid id
+            ? await LoadDayByIdAsync(connection, userId, id, cancellationToken)
+            : null;
+    }
+
     private async Task<Guid> UpsertDayAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction tx,
@@ -345,7 +467,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         var commitments = new List<CommitmentRecord>();
         await using (var list = new NpgsqlCommand(
             """
-            SELECT id, title, status, planned_duration_minutes, actual_duration_minutes
+            SELECT id, title, status, planned_duration_minutes, actual_duration_minutes, planned_at, life_area, created_at
             FROM commitments
             WHERE user_id = $1 AND day_id = $2
             ORDER BY sort_order, created_at
@@ -362,12 +484,18 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         {
             while (await reader.ReadAsync(cancellationToken))
             {
+                DateTimeOffset? plannedAt = reader.IsDBNull(5)
+                    ? null
+                    : reader.GetFieldValue<DateTimeOffset>(5);
                 commitments.Add(new CommitmentRecord(
                     reader.GetGuid(0),
                     reader.GetString(1),
                     reader.GetString(2),
                     reader.IsDBNull(3) ? null : reader.GetInt32(3),
-                    reader.IsDBNull(4) ? null : reader.GetInt32(4)));
+                    reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                    plannedAt is DateTimeOffset at ? LocalClock.MinuteOfDay(timezone, at) : null,
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7)));
             }
         }
 
@@ -395,8 +523,70 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             }
         }
 
-        return new DayRecord(dayId, localDate, timezone, showedUp, title, commitments, wins);
+        var clips = new List<ClipRecord>();
+        await using (var list = new NpgsqlCommand(
+            """
+            SELECT id, kind, transcript, created_at
+            FROM voice_sessions
+            WHERE user_id = $1 AND day_id = $2
+            ORDER BY created_at
+            """,
+            connection)
+        {
+            Parameters =
+            {
+                new NpgsqlParameter { Value = userId },
+                new NpgsqlParameter { Value = dayId }
+            }
+        })
+        await using (var reader = await list.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                clips.Add(new ClipRecord(
+                    reader.GetGuid(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetFieldValue<DateTimeOffset>(3)));
+            }
+        }
+
+        return new DayRecord(dayId, localDate, timezone, showedUp, title, commitments, wins, clips);
     }
+
+    private async Task<DayRecord?> LoadDayByIdAsync(
+        NpgsqlConnection connection,
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT local_date
+            FROM days
+            WHERE id = $1 AND user_id = $2
+            """,
+            connection)
+        {
+            Parameters =
+            {
+                new NpgsqlParameter { Value = dayId },
+                new NpgsqlParameter { Value = userId }
+            }
+        };
+        var date = ReadDate(await command.ExecuteScalarAsync(cancellationToken));
+        return date is DateOnly localDate
+            ? await LoadDayAsync(connection, userId, localDate, cancellationToken)
+            : null;
+    }
+
+    private static DateOnly? ReadDate(object? value) =>
+        value switch
+        {
+            DateOnly date => date,
+            DateTime dateTime => DateOnly.FromDateTime(dateTime),
+            _ => null
+        };
 
     private async Task<T> WithConnection<T>(
         Func<NpgsqlConnection, Task<T>> work,

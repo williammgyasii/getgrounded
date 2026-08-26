@@ -1,4 +1,5 @@
 import { type Href, router } from 'expo-router';
+// live captions come from useTalkTake, not a second mic
 import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import {
   AudioModule,
   setAudioModeAsync,
@@ -20,12 +22,18 @@ import {
 
 import { PillButton } from '@/components/auth/pill-button';
 import { BusyLock } from '@/components/talk/busy-lock';
+import { agendaSummary } from '@/components/talk/day-agenda';
 import { PlanMic } from '@/components/talk/plan-mic';
-import { useLiveWords } from '@/components/talk/use-live-words';
+import { type PlanLine } from '@/components/talk/plan-task-card';
+import { PlanSortList } from '@/components/talk/plan-sort-list';
+import { useTalkTake } from '@/components/talk/use-talk-take';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone } from '@/lib/api';
+import { clockToMinute, minuteToClock, spokenMinuteNow } from '@/lib/clock';
+import { rememberWords } from '@/lib/day-notes';
+import { layOut } from '@/lib/lay-out';
 import {
   apiUrl,
   useExtractMorningMutation,
@@ -36,7 +44,25 @@ import {
 const MaxMs = 60_000;
 
 type Step = 'record' | 'check';
-type Line = { key: string; title: string };
+function emptyLine(after?: PlanLine): PlanLine {
+  const previous = after ? clockToMinute(after.start) : null;
+  const duration = after ? parseMinutes(after.minutes) ?? 30 : 0;
+  const start = previous != null ? previous + duration : spokenMinuteNow();
+  return {
+    key: String(Date.now()),
+    title: '',
+    minutes: '30',
+    start: minuteToClock(start),
+    area: 'PERSONAL',
+    source: 'manual',
+    approved: false,
+  };
+}
+
+function parseMinutes(raw: string) {
+  const value = Number.parseInt(raw.trim(), 10);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
 
 function joinWords(current: string, next: string) {
   const left = current.trim();
@@ -71,10 +97,13 @@ export function MorningWizard() {
     },
   });
   const rec = useAudioRecorderState(recorder, 80);
+  const talk = useTalkTake();
   const [hearClip] = useHearClipMutation();
   const [extractMorning] = useExtractMorningMutation();
   const [planMorning, saveState] = usePlanMorningMutation();
-  const live = useLiveWords(rec.isRecording);
+  const isRecording = talk.available ? talk.recording : rec.isRecording;
+  const durationMillis = talk.available ? talk.durationMillis : rec.durationMillis;
+  const metering = talk.available ? talk.metering : rec.metering;
 
   const [step, setStep] = useState<Step>('record');
   const [busy, setBusy] = useState<string | null>(null);
@@ -83,14 +112,18 @@ export function MorningWizard() {
   const [canType, setCanType] = useState(false);
   const [micBlocked, setMicBlocked] = useState(false);
   const [dayTitle, setDayTitle] = useState('');
-  const [lines, setLines] = useState<Line[]>([]);
+  const [lines, setLines] = useState<PlanLine[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [showHint, setShowHint] = useState(false);
   const keptWords = useRef('');
+  const extractedFor = useRef('');
 
   useEffect(() => {
-    if (live.words.length > 0) {
-      setWords(joinWords(keptWords.current, live.words));
+    if (talk.words.length > 0) {
+      setWords(joinWords(keptWords.current, talk.words));
     }
-  }, [live.words]);
+  }, [talk.words]);
 
   useEffect(() => {
     void (async () => {
@@ -110,27 +143,45 @@ export function MorningWizard() {
   }, []);
 
   useEffect(() => {
-    if (rec.isRecording && rec.durationMillis >= MaxMs) {
+    if (isRecording && durationMillis >= MaxMs) {
       void stopAndHear();
     }
-  }, [rec.durationMillis, rec.isRecording]);
+  }, [durationMillis, isRecording]);
 
   async function start() {
     keptWords.current = words;
     setNote('Listening. Check sends it. X tosses it.');
+    if (talk.available) {
+      try {
+        await talk.start();
+        return;
+      } catch {
+        // Native speech is missing or the mic is busy — use the recorder.
+      }
+    }
+
     await recorder.prepareToRecordAsync();
     recorder.record();
   }
 
   async function discard() {
-    await recorder.stop();
+    if (talk.available) {
+      talk.discard();
+    } else {
+      await recorder.stop();
+    }
     setNote('Tossed. Tap the mic and speak.');
   }
 
   async function stopAndHear() {
-    await recorder.stop();
-    const uri = recorder.uri;
+    const uri = talk.available ? await talk.stop() : (await recorder.stop(), recorder.uri);
     if (!uri) {
+      if (talk.words.trim().length > 0) {
+        setCanType(true);
+        setNote('Fix anything we misheard, then continue.');
+        return;
+      }
+
       setNote('Nothing was recorded. Tap the mic and speak.');
       return;
     }
@@ -172,21 +223,43 @@ export function MorningWizard() {
       return;
     }
 
+    if (extractedFor.current === transcript && lines.length > 0) {
+      setCheckError(null);
+      setStep('check');
+      return;
+    }
+
     setBusy('Finding the plan in your words…');
     try {
-      const draft = await extractMorning({ transcript }).unwrap();
+      const draft = await extractMorning({
+        transcript,
+        timezone,
+        spokenAt: new Date().toISOString(),
+      }).unwrap();
+      const namedTimes = new Set(
+        draft.commitments
+          .filter((item) => item.plannedStartMinute != null)
+          .map((item) => item.title.trim().toLowerCase()),
+      );
+      const scheduled = layOut(draft.commitments, spokenMinuteNow());
       setDayTitle(draft.title ?? '');
       setLines(
-        draft.commitments.map((item, index) => ({
+        scheduled.map((item, index) => ({
           key: `${index}-${item.title}`,
           title: item.title,
+          minutes: item.plannedDurationMinutes ? String(item.plannedDurationMinutes) : '30',
+          start: minuteToClock(item.plannedStartMinute),
+          area: item.lifeArea ?? 'PERSONAL',
+          source: namedTimes.has(item.title.trim().toLowerCase()) ? 'spoken' : 'inferred',
+          approved: false,
         })),
       );
-      if (draft.commitments.length === 0) {
-        setLines([{ key: 'empty', title: '' }]);
+      if (scheduled.length === 0) {
+        setLines([emptyLine()]);
       }
+      extractedFor.current = transcript;
+      setCheckError(null);
       setStep('check');
-      setNote('Edit the plan, name the day, then save.');
     } catch {
       setStep('record');
       setCanType(true);
@@ -199,23 +272,31 @@ export function MorningWizard() {
   async function save() {
     const transcript = words.trim();
     const commitments = lines
-      .map((line) => ({ title: line.title.trim() }))
+      .filter((line) => line.approved)
+      .map((line) => ({
+        title: line.title.trim(),
+        plannedDurationMinutes: parseMinutes(line.minutes),
+        plannedStartMinute: clockToMinute(line.start),
+        lifeArea: line.area.trim() || null,
+      }))
       .filter((item) => item.title.length > 0);
     if (!transcript || commitments.length === 0) {
-      setNote('Keep at least one commitment.');
+      setCheckError('Approve at least one task, or tap the checkmark.');
       return;
     }
 
     try {
-      await planMorning({
+      const saved = await planMorning({
         timezone,
         transcript,
         title: dayTitle.trim() || null,
         commitments,
       }).unwrap();
-      router.replace('/today' as Href);
+      await rememberWords(saved.localDate, transcript);
+      setStep('record');
+      router.navigate('/history' as Href);
     } catch {
-      setNote('Could not save the morning plan.');
+      setCheckError('Could not save the morning plan.');
     }
   }
 
@@ -225,9 +306,12 @@ export function MorningWizard() {
       {showBack ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to Today"
+          accessibilityLabel="Back to your words"
           hitSlop={12}
-          onPress={() => router.navigate('/today' as Href)}
+          onPress={() => {
+            setCanType(words.trim().length > 0);
+            setStep('record');
+          }}
           style={styles.back}>
           <SymbolView
             name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }}
@@ -249,59 +333,112 @@ export function MorningWizard() {
         {header}
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          scrollEnabled={!dragging}
           contentContainerStyle={styles.checkBody}
           showsVerticalScrollIndicator={false}>
-          <TextInput
-            value={dayTitle}
-            onChangeText={setDayTitle}
-            placeholder="Name this day"
-            placeholderTextColor={theme.textSecondary}
-            style={[
-              styles.titleInput,
-              {
-                backgroundColor: theme.inputBackground,
-                borderColor: theme.border,
-                color: theme.text,
-              },
-            ]}
-          />
-          {lines.map((line) => (
+          <Animated.View entering={FadeIn.duration(280)} style={styles.dayNameRow}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Day name
+            </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="How we built this day"
+              hitSlop={10}
+              onPress={() => setShowHint((open) => !open)}
+              style={styles.hintBtn}>
+              <SymbolView
+                name={{
+                  ios: 'questionmark.circle',
+                  android: 'help_outline',
+                  web: 'help_outline',
+                }}
+                size={16}
+                tintColor={theme.textSecondary}
+              />
+            </Pressable>
+          </Animated.View>
+          {showHint ? (
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              style={[styles.hint, { backgroundColor: theme.primary }]}>
+              <ThemedText type="smallBold" style={styles.bannerTitle}>
+                We turned your words into a day
+              </ThemedText>
+              <ThemedText type="small" style={styles.bannerBody}>
+                {agendaSummary(
+                  lines
+                    .filter((line) => line.title.trim().length > 0)
+                    .map((line) => ({
+                      key: line.key,
+                      title: line.title,
+                      plannedStartMinute: clockToMinute(line.start),
+                      plannedDurationMinutes: parseMinutes(line.minutes),
+                      lifeArea: line.area,
+                    })),
+                )}
+                {lines.some((line) => line.source === 'inferred')
+                  ? ' · Things without a time start from when you spoke, in the open gaps.'
+                  : ''}
+              </ThemedText>
+            </Animated.View>
+          ) : null}
+          <Animated.View entering={FadeInDown.duration(320).delay(40)}>
             <TextInput
-              key={line.key}
-              value={line.title}
-              onChangeText={(title) =>
-                setLines((current) =>
-                  current.map((item) => (item.key === line.key ? { ...item, title } : item)),
-                )
-              }
-              placeholder="A commitment"
+              value={dayTitle}
+              onChangeText={setDayTitle}
+              placeholder="Name this day"
               placeholderTextColor={theme.textSecondary}
               style={[
-                styles.line,
+                styles.titleInput,
                 {
-                  backgroundColor: theme.inputBackground,
+                  backgroundColor: theme.card,
                   borderColor: theme.border,
                   color: theme.text,
                 },
               ]}
             />
-          ))}
-          <Pressable
-            onPress={() => setLines((current) => [...current, { key: String(Date.now()), title: '' }])}
-            accessibilityRole="button">
-            <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
-              Add another
-            </ThemedText>
-          </Pressable>
+          </Animated.View>
           <ThemedText type="small" themeColor="textSecondary">
-            {note}
+            Tasks
           </ThemedText>
-          <PillButton label="Save" loading={saveState.isLoading} onPress={() => void save()} />
-          <Pressable onPress={() => setStep('record')} accessibilityRole="button">
-            <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
-              Edit your words
-            </ThemedText>
-          </Pressable>
+          <PlanSortList
+            lines={lines}
+            onChange={(next) =>
+              setLines((current) => current.map((item) => (item.key === next.key ? next : item)))
+            }
+            onRemove={(key) => setLines((current) => current.filter((item) => item.key !== key))}
+            onReorder={setLines}
+            onDragChange={setDragging}
+          />
+          <Animated.View entering={FadeInUp.duration(280).delay(160)} style={styles.footer}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add another task"
+              onPress={() =>
+                setLines((current) => [...current, emptyLine(current[current.length - 1])])
+              }
+              style={[styles.plus, { backgroundColor: theme.primary, borderColor: theme.primary }]}>
+              <SymbolView
+                name={{ ios: 'plus', android: 'add', web: 'add' }}
+                size={22}
+                tintColor="#FFFFFF"
+              />
+            </Pressable>
+            {checkError ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                {checkError}
+              </ThemedText>
+            ) : null}
+            <PillButton
+              label={
+                lines.every((line) => line.approved)
+                  ? 'Save the day'
+                  : `Save ${lines.filter((line) => line.approved).length} approved`
+              }
+              loading={saveState.isLoading}
+              onPress={() => void save()}
+            />
+          </Animated.View>
         </ScrollView>
       </View>
     );
@@ -326,7 +463,11 @@ export function MorningWizard() {
             borderColor: theme.border,
           },
         ]}>
-        {allowType ? (
+        {isRecording ? (
+          <ThemedText style={[styles.wordsInput, { color: theme.text }]}>
+            {words || 'Listening…'}
+          </ThemedText>
+        ) : allowType ? (
           <TextInput
             value={words}
             onChangeText={setWords}
@@ -337,30 +478,34 @@ export function MorningWizard() {
           />
         ) : (
           <ThemedText themeColor="textSecondary" style={styles.wordsInput}>
-            {rec.isRecording
-              ? live.liveAvailable
-                ? live.words || 'Listening…'
-                : 'Listening… words appear when you stop.'
-              : 'Tap the mic and speak.'}
+            Tap the mic and speak.
           </ThemedText>
         )}
       </View>
       <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-        {rec.isRecording ? 'Listening. Check sends it. X tosses it.' : note}
+        {isRecording ? 'Listening. Check sends it. X tosses it.' : note}
       </ThemedText>
       <PlanMic
-        recording={rec.isRecording}
-        durationMillis={rec.durationMillis}
-        metering={rec.metering}
+        recording={isRecording}
+        durationMillis={durationMillis}
+        metering={metering}
         onStart={() => void start()}
         onSend={() => void stopAndHear()}
         onDiscard={() => void discard()}
       />
-      <PillButton
-        label="Continue"
-        disabled={words.trim().length === 0}
-        onPress={() => void extract()}
-      />
+      {canType && words.trim().length > 0 ? (
+        <View style={styles.continueRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue to the plan"
+            onPress={() => void extract()}
+            style={[styles.continue, { backgroundColor: theme.primary }]}>
+            <ThemedText type="small" style={styles.continueLabel}>
+              Continue
+            </ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -386,7 +531,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   screenTitle: {
-    fontFamily: FontFamily.semibold,
+    fontFamily: FontFamily.medium,
     fontSize: 22,
     lineHeight: 28,
     flex: 1,
@@ -404,10 +549,24 @@ const styles = StyleSheet.create({
   },
   wordsInput: {
     flex: 1,
-    fontFamily: FontFamily.medium,
-    fontSize: 18,
+    fontFamily: FontFamily.regular,
+    fontSize: 17,
     lineHeight: 26,
     textAlignVertical: 'top',
+  },
+  continueRow: {
+    alignItems: 'flex-end',
+  },
+  continue: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.four,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueLabel: {
+    color: '#FFFFFF',
+    fontFamily: FontFamily.medium,
   },
   note: {
     alignSelf: 'stretch',
@@ -416,24 +575,45 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingBottom: Spacing.four,
   },
-  toggle: {
-    textDecorationLine: 'underline',
+  dayNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  hintBtn: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hint: {
+    borderRadius: 10,
+    padding: Spacing.three,
+    gap: Spacing.one,
+  },
+  footer: {
+    gap: Spacing.three,
+    alignItems: 'center',
+  },
+  plus: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerTitle: {
+    color: '#FFFFFF',
+  },
+  bannerBody: {
+    color: '#FFFFFF',
   },
   titleInput: {
     width: '100%',
-    minHeight: 52,
+    minHeight: 42,
     borderWidth: 1,
-    borderRadius: Radius.field,
-    paddingHorizontal: Spacing.three,
-    fontFamily: FontFamily.semibold,
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  line: {
-    width: '100%',
-    minHeight: 48,
-    borderWidth: 1,
-    borderRadius: Radius.field,
+    borderRadius: 10,
     paddingHorizontal: Spacing.three,
     fontFamily: FontFamily.medium,
     fontSize: 16,

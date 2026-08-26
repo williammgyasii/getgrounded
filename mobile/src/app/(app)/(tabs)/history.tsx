@@ -1,0 +1,151 @@
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { SymbolView } from 'expo-symbols';
+
+import { useAuthUser } from '@/components/auth/auth-session';
+import { HomeTopBar } from '@/components/home/home-top-bar';
+import { agendaSummary } from '@/components/talk/day-agenda';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { deviceTimezone } from '@/lib/api';
+import { longDayLabel, scheduledTasks } from '@/lib/day-tasks';
+import { useGetHistoryQuery, useRemoveDayMutation } from '@/store/api';
+
+function initialFrom(email: string | null | undefined): string {
+  const local = email?.split('@')[0]?.trim();
+  return local ? local[0].toUpperCase() : '';
+}
+
+export default function TasksScreen() {
+  const theme = useTheme();
+  const user = useAuthUser();
+  const signedIn = user != null;
+  const { data: days = [], refetch } = useGetHistoryQuery(deviceTimezone(), { skip: !signedIn });
+  const [removeDay] = useRemoveDayMutation();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (signedIn) {
+        void refetch();
+      }
+    }, [signedIn, refetch]),
+  );
+
+  function onDelete(id: string, title: string) {
+    Alert.alert('Delete this day?', title, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => void removeDay(id),
+      },
+    ]);
+  }
+
+  return (
+    <ThemedView style={styles.screen}>
+      <HomeTopBar
+        title="Tasks"
+        subtitle="Each day you spoke."
+        initial={initialFrom(user?.email)}
+        onAvatarPress={() => router.push('/you')}
+      />
+      <ScrollView contentContainerStyle={styles.content}>
+        {days.length === 0 ? (
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <ThemedText type="smallBold">No days yet</ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.copy}>
+              Plan a morning and it will land here.
+            </ThemedText>
+          </View>
+        ) : (
+          days.map((day, index) => {
+            const tasks = scheduledTasks(day.commitments);
+            return (
+              <Animated.View key={day.id} entering={FadeInDown.duration(280).delay(index * 40)}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${day.title ?? day.localDate}`}
+                  onPress={() => router.push(`/day/${day.id}`)}
+                  style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <View style={styles.cardTop}>
+                    <View style={styles.cardCopy}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {longDayLabel(day.localDate)}
+                      </ThemedText>
+                      <ThemedText style={styles.dayTitle}>{day.title ?? 'Untitled day'}</ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {agendaSummary(tasks)}
+                      </ThemedText>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete day"
+                      onPress={() => onDelete(day.id, day.title ?? day.localDate)}
+                      hitSlop={8}
+                      style={styles.trash}>
+                      <SymbolView
+                        name={{ ios: 'trash', android: 'delete', web: 'delete' }}
+                        size={18}
+                        tintColor={theme.textSecondary}
+                      />
+                    </Pressable>
+                  </View>
+                </Pressable>
+              </Animated.View>
+            );
+          })
+        )}
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  content: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.four,
+    gap: Spacing.two,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 10,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  cardCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  dayTitle: {
+    fontFamily: FontFamily.semibold,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  trash: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copy: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+});

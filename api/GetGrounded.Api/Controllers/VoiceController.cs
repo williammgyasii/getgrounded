@@ -64,14 +64,20 @@ public sealed class VoiceController(AuthService auth, ClipService clips) : Contr
 
         try
         {
-            var draft = await clips.ExtractMorningAsync(body.Transcript, cancellationToken);
+            var draft = await clips.ExtractMorningAsync(
+                body.Transcript,
+                body.Timezone,
+                body.SpokenAt,
+                cancellationToken);
             return Ok(new
             {
                 title = draft.Title,
                 commitments = draft.Commitments.Select(item => new
                 {
                     title = item.Title,
-                    plannedDurationMinutes = item.PlannedDurationMinutes
+                    plannedDurationMinutes = item.PlannedDurationMinutes,
+                    plannedStartMinute = item.PlannedStartMinute,
+                    lifeArea = item.LifeArea
                 })
             });
         }
@@ -171,5 +177,9 @@ public sealed class VoiceController(AuthService auth, ClipService clips) : Contr
         return new HearClip(memory.ToArray(), file.ContentType ?? "");
     }
 
-    public sealed record ExtractRequest(string Kind, string Transcript);
+    public sealed record ExtractRequest(
+        string Kind,
+        string Transcript,
+        string? Timezone,
+        DateTimeOffset? SpokenAt);
 }

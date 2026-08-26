@@ -47,6 +47,72 @@ public class BookTests
     }
 
     [Fact]
+    public async Task Morning_keeps_the_life_area_tag()
+    {
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+
+        var day = await book.PlanMorningAsync(
+            Person,
+            "UTC",
+            "Gym then lunch.",
+            [
+                new PlannedItem("Gym", 60, 7 * 60, "HEALTH"),
+                new PlannedItem("Get lunch", 45, 12 * 60, "HOME"),
+            ]);
+
+        Assert.Equal("HEALTH", day.Commitments[0].LifeArea);
+        Assert.Equal("HOME", day.Commitments[1].LifeArea);
+    }
+
+    [Fact]
+    public async Task Morning_second_take_appends_and_stamps_when()
+    {
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+
+        await book.PlanMorningAsync(
+            Person,
+            "UTC",
+            "Gym.",
+            [new PlannedItem("Gym", 60, 7 * 60)]);
+        var day = await book.PlanMorningAsync(
+            Person,
+            "UTC",
+            "Also call Mom.",
+            [new PlannedItem("Call Mom", 20, 16 * 60)]);
+
+        Assert.Equal(2, day.Commitments.Count);
+        Assert.Equal(["Gym", "Call Mom"], day.Commitments.Select(item => item.Title).ToArray());
+        Assert.All(day.Commitments, item => Assert.NotNull(item.CreatedAt));
+        Assert.Equal(2, day.Clips.Count);
+    }
+
+    [Fact]
+    public async Task Day_can_be_renamed_checked_and_deleted()
+    {
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+        var day = await book.PlanMorningAsync(
+            Person,
+            "UTC",
+            "Gym.",
+            [new PlannedItem("Gym"), new PlannedItem("Read")],
+            "Today's commitment");
+
+        var renamed = await book.RenameDayAsync(Person, day.Id, "Heavy gym day");
+        Assert.Equal("Heavy gym day", renamed!.Title);
+
+        var checkedIn = await book.MarkCommitmentAsync(Person, day.Commitments[0].Id, "COMPLETED");
+        Assert.Equal("COMPLETED", checkedIn!.Commitments[0].Status);
+        Assert.Equal("PLANNED", checkedIn.Commitments[1].Status);
+
+        var trimmed = await book.RemoveCommitmentAsync(Person, day.Commitments[1].Id);
+        Assert.Single(trimmed!.Commitments);
+
+        Assert.True(await book.RemoveDayAsync(Person, day.Id));
+        var desk = await book.GetDeskAsync(Person, "UTC");
+        Assert.Null(desk.Today);
+    }
+
+    [Fact]
     public async Task Evening_reconciles_outcomes_and_records_wins()
     {
         var store = new MemoryBookStore();

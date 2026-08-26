@@ -7,46 +7,49 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-/** Stone floor — not kit peach, not blank white. */
-export const Surface = '#F3EFE8';
+/** Cool paper, navy ink, orange action, blue highlight. */
+export const Surface = '#EEF2F8';
 
 export const Colors = {
   light: {
-    text: '#1C1915',
+    text: '#243056',
     background: Surface,
-    backgroundElement: '#E8E2D6',
-    backgroundSelected: '#DDD6C8',
-    textSecondary: '#6B6458',
-    primary: '#2F4A3C',
-    primarySoft: '#DCE6DF',
-    primaryOn: '#F7F3EC',
-    border: '#D6CFC3',
-    inputBackground: '#FAF7F1',
-    accent: '#2F4A3C',
+    backgroundElement: '#DCE4F5',
+    backgroundSelected: '#C9D4F0',
+    textSecondary: '#6B7394',
+    primary: '#FDA758',
+    primarySoft: '#E4EBFA',
+    primaryOn: '#FFFFFF',
+    border: '#C9D3E8',
+    inputBackground: '#FFFFFF',
+    card: '#FFFFFF',
+    accent: '#4C6FFF',
   },
   dark: {
-    text: '#1C1915',
+    text: '#243056',
     background: Surface,
-    backgroundElement: '#E8E2D6',
-    backgroundSelected: '#DDD6C8',
-    textSecondary: '#6B6458',
-    primary: '#2F4A3C',
-    primarySoft: '#DCE6DF',
-    primaryOn: '#F7F3EC',
-    border: '#D6CFC3',
-    inputBackground: '#FAF7F1',
-    accent: '#2F4A3C',
+    backgroundElement: '#DCE4F5',
+    backgroundSelected: '#C9D4F0',
+    textSecondary: '#6B7394',
+    primary: '#FDA758',
+    primarySoft: '#E4EBFA',
+    primaryOn: '#FFFFFF',
+    border: '#C9D3E8',
+    inputBackground: '#FFFFFF',
+    card: '#FFFFFF',
+    accent: '#4C6FFF',
   },
 } as const;
 
 export const Radius = {
-  field: 12,
-  button: 12,
-  card: 12,
-  pill: 12,
+  field: 16,
+  button: 16,
+  card: 18,
+  pill: 20,
 } as const;
 
 export const FontFamily = {
+  regular: 'Poppins_400Regular',
   medium: 'Poppins_500Medium',
   semibold: 'Poppins_600SemiBold',
   bold: 'Poppins_700Bold',

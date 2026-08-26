@@ -134,7 +134,9 @@ public class ClipTests
         var response = await client.PostAsJsonAsync("/voice/extract", new
         {
             kind = "MORNING_PLAN",
-            transcript = "Gym at 7 and read."
+            transcript = "Gym at 7 and read.",
+            timezone = "UTC",
+            spokenAt = "2026-08-26T12:00:00Z"
         });
         var draft = await response.Content.ReadFromJsonAsync<ExtractBody>(Json);
         var deskResponse = await client.GetAsync("/days/today?timezone=UTC");
@@ -143,6 +145,8 @@ public class ClipTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Heavy gym Tuesday", draft!.Title);
         Assert.Equal(["Gym", "Read"], draft.Commitments.Select(item => item.Title).ToArray());
+        Assert.Equal(12 * 60, draft.Commitments[0].PlannedStartMinute);
+        Assert.Equal(12 * 60 + 30, draft.Commitments[1].PlannedStartMinute);
         Assert.Null(desk!.Today);
     }
 
@@ -212,7 +216,11 @@ public class ClipTests
 
     private sealed record HearBody(string Transcript);
     private sealed record ExtractBody(string? Title, IReadOnlyList<ExtractItem> Commitments);
-    private sealed record ExtractItem(string Title, int? PlannedDurationMinutes);
+    private sealed record ExtractItem(
+        string Title,
+        int? PlannedDurationMinutes,
+        int? PlannedStartMinute,
+        string? LifeArea);
     private sealed record DeskBody(int StreakDays, DayBody? Today);
     private sealed record DayBody(IReadOnlyList<CommitmentBody> Commitments);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);

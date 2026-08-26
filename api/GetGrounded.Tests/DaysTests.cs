@@ -55,6 +55,8 @@ public class DaysTests
         Assert.NotNull(day);
         Assert.Equal("Heavy gym Tuesday", day.Title);
         Assert.Equal(3, day.Commitments.Count);
+        Assert.Single(day.Clips);
+        Assert.Equal("Gym at 7, read 20 minutes, ship the API test.", day.Clips[0].Transcript);
 
         var evening = await client.PostAsJsonAsync("/days/evening", new
         {
@@ -87,6 +89,42 @@ public class DaysTests
         Assert.Single(history);
     }
 
+    [Fact]
+    public async Task Day_title_check_and_delete_round_trip()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Gym and read.",
+            title = "Today's commitment",
+            commitments = new[] { new { title = "Gym" }, new { title = "Read" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+        Assert.NotNull(day);
+
+        var renamed = await client.PatchAsJsonAsync($"/days/{day.Id}", new { title = "Heavy gym day" });
+        var afterName = await renamed.Content.ReadFromJsonAsync<DayBody>(Json);
+        Assert.Equal(HttpStatusCode.OK, renamed.StatusCode);
+        Assert.Equal("Heavy gym day", afterName!.Title);
+
+        var marked = await client.PatchAsJsonAsync(
+            $"/days/commitments/{day.Commitments[0].Id}",
+            new { status = "COMPLETED" });
+        var afterMark = await marked.Content.ReadFromJsonAsync<DayBody>(Json);
+        Assert.Equal("COMPLETED", afterMark!.Commitments[0].Status);
+
+        var removedTask = await client.DeleteAsync($"/days/commitments/{day.Commitments[1].Id}");
+        var afterTask = await removedTask.Content.ReadFromJsonAsync<DayBody>(Json);
+        Assert.Single(afterTask!.Commitments);
+
+        var removed = await client.DeleteAsync($"/days/{day.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -103,7 +141,13 @@ public class DaysTests
     }
 
     private sealed record DeskBody(int StreakDays, DayBody? Today);
-    private sealed record DayBody(string? Title, IReadOnlyList<CommitmentBody> Commitments, IReadOnlyList<WinBody> Wins);
+    private sealed record DayBody(
+        Guid Id,
+        string? Title,
+        IReadOnlyList<CommitmentBody> Commitments,
+        IReadOnlyList<WinBody> Wins,
+        IReadOnlyList<ClipBody> Clips);
+    private sealed record ClipBody(string Kind, string Transcript);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);
     private sealed record WinBody(string Title);
 }

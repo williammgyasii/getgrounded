@@ -1,23 +1,17 @@
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
 
-import { GroundedTabBar } from '@/components/home/grounded-tab-bar';
 import { Colors } from '@/constants/theme';
 
-export default function AppTabsLayout() {
+export default function AppLayout() {
   return (
-    <Tabs
-      initialRouteName="today"
-      tabBar={(props) => <GroundedTabBar {...props} />}
+    <Stack
       screenOptions={{
         headerShown: false,
-        sceneStyle: { backgroundColor: Colors.light.background },
+        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: Colors.light.background },
       }}>
-      <Tabs.Screen name="today" />
-      <Tabs.Screen name="history" />
-      <Tabs.Screen name="talk" />
-      <Tabs.Screen name="review" />
-      <Tabs.Screen name="you" />
-      <Tabs.Screen name="home" options={{ href: null }} />
-    </Tabs>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="day/[id]" />
+    </Stack>
   );
 }

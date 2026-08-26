@@ -1,6 +1,10 @@
 namespace GetGrounded.Application.Book;
 
-public sealed record PlannedItem(string Title, int? PlannedDurationMinutes = null);
+public sealed record PlannedItem(
+    string Title,
+    int? PlannedDurationMinutes = null,
+    int? PlannedStartMinute = null,
+    string? LifeArea = null);
 
 public sealed record OutcomeItem(
     Guid Id,
@@ -15,9 +19,14 @@ public sealed record CommitmentRecord(
     string Title,
     string Status,
     int? PlannedDurationMinutes,
-    int? ActualDurationMinutes);
+    int? ActualDurationMinutes,
+    int? PlannedStartMinute = null,
+    string? LifeArea = null,
+    DateTimeOffset? CreatedAt = null);
 
 public sealed record WinRecord(Guid Id, string Title);
+
+public sealed record ClipRecord(Guid Id, string Kind, string Transcript, DateTimeOffset? CreatedAt = null);
 
 public sealed record DayRecord(
     Guid Id,
@@ -26,6 +35,7 @@ public sealed record DayRecord(
     bool ShowedUp,
     string? Title,
     IReadOnlyList<CommitmentRecord> Commitments,
-    IReadOnlyList<WinRecord> Wins);
+    IReadOnlyList<WinRecord> Wins,
+    IReadOnlyList<ClipRecord> Clips);
 
 public sealed record DeskRecord(DateOnly LocalDate, int StreakDays, DayRecord? Today, DayRecord? Yesterday);

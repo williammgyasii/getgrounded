@@ -4,7 +4,10 @@ namespace GetGrounded.Application.Voice;
 
 public interface IDayInterpreter
 {
-    Task<MorningDraft> ReadMorningAsync(string transcript, CancellationToken cancellationToken = default);
+    Task<MorningDraft> ReadMorningAsync(
+        string transcript,
+        MorningContext? context = null,
+        CancellationToken cancellationToken = default);
     Task<EveningDraft> ReadEveningAsync(
         string transcript,
         IReadOnlyList<CommitmentRecord> planned,

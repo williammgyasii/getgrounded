@@ -8,11 +8,21 @@ export type CommitmentRecord = {
   status: string;
   plannedDurationMinutes: number | null;
   actualDurationMinutes: number | null;
+  plannedStartMinute?: number | null;
+  lifeArea?: string | null;
+  createdAt?: string | null;
 };
 
 export type WinRecord = {
   id: string;
   title: string;
+};
+
+export type ClipRecord = {
+  id: string;
+  kind: string;
+  transcript: string;
+  createdAt?: string | null;
 };
 
 export type DayRecord = {
@@ -23,11 +33,17 @@ export type DayRecord = {
   title: string | null;
   commitments: CommitmentRecord[];
   wins: WinRecord[];
+  clips?: ClipRecord[];
 };
 
 export type MorningDraft = {
   title: string | null;
-  commitments: { title: string; plannedDurationMinutes: number | null }[];
+  commitments: {
+    title: string;
+    plannedDurationMinutes: number | null;
+    plannedStartMinute?: number | null;
+    lifeArea?: string | null;
+  }[];
 };
 
 export type DeskRecord = {

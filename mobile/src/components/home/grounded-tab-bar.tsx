@@ -20,8 +20,8 @@ type GroundedTabBarProps = {
   state: { index: number; routes: { name: string }[] };
 };
 
-const todayIcon = { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' } as const;
-const historyIcon = { ios: 'book.fill', android: 'menu_book', web: 'menu_book' } as const;
+const todayIcon = { ios: 'house.fill', android: 'home', web: 'home' } as const;
+const historyIcon = { ios: 'checklist', android: 'checklist', web: 'checklist' } as const;
 const reviewIcon = { ios: 'chart.bar.fill', android: 'bar_chart', web: 'bar_chart' } as const;
 const youIcon = { ios: 'person.fill', android: 'person', web: 'person' } as const;
 
@@ -41,13 +41,13 @@ export function GroundedTabBar({ state }: GroundedTabBarProps) {
         },
       ]}>
       <TabItem
-        label="Today"
+        label="Home"
         focused={current === 'today'}
         icon={todayIcon}
         onPress={() => router.navigate('/today' as Href)}
       />
       <TabItem
-        label="Work"
+        label="Tasks"
         focused={current === 'history'}
         icon={historyIcon}
         onPress={() => router.navigate('/history' as Href)}
@@ -87,9 +87,14 @@ function TabItem({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      android_ripple={{ color: 'transparent' }}
       onPress={onPress}
       style={styles.item}>
-      <View style={[styles.chip, focused && { backgroundColor: theme.primarySoft }]}>
+      <View
+        style={[
+          styles.iconWrap,
+          focused && { borderColor: theme.accent },
+        ]}>
         <SymbolView name={icon} size={22} tintColor={color} />
       </View>
       <ThemedText type="small" style={[styles.label, { color }]}>
@@ -174,10 +179,12 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingBottom: Spacing.one,
   },
-  chip: {
-    width: 40,
-    height: 28,
-    borderRadius: 14,
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
