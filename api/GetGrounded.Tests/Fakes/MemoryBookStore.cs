@@ -5,6 +5,7 @@ namespace GetGrounded.Tests.Fakes;
 public sealed class MemoryBookStore : IBookStore
 {
     private readonly Dictionary<(Guid UserId, DateOnly Date), DayState> _days = [];
+    private readonly Dictionary<Guid, string?> _clipKeys = [];
 
     public Task<DayRecord> SaveMorningAsync(
         Guid userId,
@@ -13,6 +14,7 @@ public sealed class MemoryBookStore : IBookStore
         string transcript,
         IReadOnlyList<PlannedItem> items,
         string? title = null,
+        string? storageKey = null,
         CancellationToken cancellationToken = default)
     {
         _ = transcript;
@@ -22,7 +24,14 @@ public sealed class MemoryBookStore : IBookStore
             day.Title = title;
         }
 
-        day.Clips.Add(new ClipRecord(Guid.CreateVersion7(), "MORNING_PLAN", transcript, DateTimeOffset.UtcNow));
+        var clipId = Guid.CreateVersion7();
+        _clipKeys[clipId] = storageKey;
+        day.Clips.Add(new ClipRecord(
+            clipId,
+            "MORNING_PLAN",
+            transcript,
+            DateTimeOffset.UtcNow,
+            storageKey is not null));
         foreach (var item in items)
         {
             day.Commitments.Add(new CommitmentRecord(
@@ -49,7 +58,9 @@ public sealed class MemoryBookStore : IBookStore
         CancellationToken cancellationToken = default)
     {
         var day = GetOrCreate(userId, localDate, timezone);
-        day.Clips.Add(new ClipRecord(Guid.CreateVersion7(), "EVENING_REFLECTION", transcript, DateTimeOffset.UtcNow));
+        var clipId = Guid.CreateVersion7();
+        _clipKeys[clipId] = null;
+        day.Clips.Add(new ClipRecord(clipId, "EVENING_REFLECTION", transcript, DateTimeOffset.UtcNow));
         foreach (var outcome in outcomes)
         {
             var index = day.Commitments.FindIndex(item => item.Id == outcome.Id);
@@ -124,12 +135,36 @@ public sealed class MemoryBookStore : IBookStore
         return Task.FromResult<DayRecord?>(day.ToRecord());
     }
 
+    public Task<IReadOnlyList<string>> ListClipKeysAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default)
+    {
+        var day = Find(userId, dayId);
+        if (day is null)
+        {
+            return Task.FromResult<IReadOnlyList<string>>([]);
+        }
+
+        IReadOnlyList<string> keys = day.Clips
+            .Select(clip => _clipKeys.TryGetValue(clip.Id, out var key) ? key : null)
+            .Where(key => key is not null)
+            .Cast<string>()
+            .ToList();
+        return Task.FromResult(keys);
+    }
+
     public Task<bool> RemoveDayAsync(Guid userId, Guid dayId, CancellationToken cancellationToken = default)
     {
         var day = Find(userId, dayId);
         if (day is null)
         {
             return Task.FromResult(false);
+        }
+
+        foreach (var clip in day.Clips)
+        {
+            _clipKeys.Remove(clip.Id);
         }
 
         _days.Remove((day.UserId, day.LocalDate));
@@ -166,6 +201,22 @@ public sealed class MemoryBookStore : IBookStore
 
         day.Commitments.RemoveAll(item => item.Id == commitmentId);
         return Task.FromResult<DayRecord?>(day.ToRecord());
+    }
+
+    public Task<ClipPointer?> GetClipAsync(
+        Guid userId,
+        Guid clipId,
+        CancellationToken cancellationToken = default)
+    {
+        var day = _days.Values.FirstOrDefault(item =>
+            item.UserId == userId && item.Clips.Any(clip => clip.Id == clipId));
+        if (day is null)
+        {
+            return Task.FromResult<ClipPointer?>(null);
+        }
+
+        _clipKeys.TryGetValue(clipId, out var storageKey);
+        return Task.FromResult<ClipPointer?>(new ClipPointer(clipId, storageKey));
     }
 
     private DayState? Find(Guid userId, Guid dayId) =>

@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { File } from 'expo-file-system';
 
-import { type DayRecord, type DeskRecord, type MorningDraft } from '@/lib/api';
+import { deviceTimezone, type DayRecord, type DeskRecord, type MorningDraft } from '@/lib/api';
 import { getFirebaseAuth } from '@/lib/firebase';
 
 function clipForm(uri: string, extra?: Record<string, string>): FormData {
@@ -53,6 +53,7 @@ export const groundedApi = createApi({
         timezone: string;
         transcript: string;
         title?: string | null;
+        storageKey?: string | null;
         commitments: {
           title: string;
           plannedDurationMinutes?: number | null;
@@ -61,10 +62,10 @@ export const groundedApi = createApi({
         }[];
       }
     >({
-      query: ({ timezone, transcript, title, commitments }) => ({
+      query: ({ timezone, transcript, title, storageKey, commitments }) => ({
         url: '/days/morning',
         method: 'POST',
-        body: { timezone, transcript, title, commitments },
+        body: { timezone, transcript, title, storageKey, commitments },
       }),
       invalidatesTags: ['Desk', 'History'],
     }),
@@ -89,12 +90,19 @@ export const groundedApi = createApi({
       }),
       invalidatesTags: ['Desk', 'History'],
     }),
-    hearClip: build.mutation<{ transcript: string }, { uri: string }>({
+    hearClip: build.mutation<{ transcript: string; storageKey?: string }, { uri: string }>({
       query: ({ uri }) => ({
         url: '/voice/hear',
         method: 'POST',
         body: clipForm(uri),
       }),
+    }),
+    getClip: build.query<ArrayBuffer, string>({
+      query: (id) => ({
+        url: `/voice/clips/${id}`,
+        responseHandler: (response) => response.arrayBuffer(),
+      }),
+      keepUnusedDataFor: 0,
     }),
     extractMorning: build.mutation<
       MorningDraft,
@@ -112,6 +120,14 @@ export const groundedApi = createApi({
         method: 'PATCH',
         body: { title },
       }),
+      async onQueryStarted({ id, title }, { dispatch, queryFulfilled }) {
+        const patches = patchBook(dispatch, (day) => (day.id === id ? { ...day, title } : day));
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach((patch) => patch.undo());
+        }
+      },
       invalidatesTags: ['Desk', 'History'],
     }),
     removeDay: build.mutation<void, string>({
@@ -119,6 +135,14 @@ export const groundedApi = createApi({
         url: `/days/${id}`,
         method: 'DELETE',
       }),
+      async onQueryStarted(id, { dispatch, queryFulfilled }) {
+        const patches = patchBook(dispatch, (day) => (day.id === id ? null : day));
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach((patch) => patch.undo());
+        }
+      },
       invalidatesTags: ['Desk', 'History'],
     }),
     markCommitment: build.mutation<DayRecord, { id: string; status: string }>({
@@ -127,6 +151,17 @@ export const groundedApi = createApi({
         method: 'PATCH',
         body: { status },
       }),
+      async onQueryStarted({ id, status }, { dispatch, queryFulfilled }) {
+        const patches = patchBook(dispatch, (day) => ({
+          ...day,
+          commitments: day.commitments.map((item) => (item.id === id ? { ...item, status } : item)),
+        }));
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach((patch) => patch.undo());
+        }
+      },
       invalidatesTags: ['Desk', 'History'],
     }),
     removeCommitment: build.mutation<DayRecord, string>({
@@ -134,6 +169,17 @@ export const groundedApi = createApi({
         url: `/days/commitments/${id}`,
         method: 'DELETE',
       }),
+      async onQueryStarted(id, { dispatch, queryFulfilled }) {
+        const patches = patchBook(dispatch, (day) => ({
+          ...day,
+          commitments: day.commitments.filter((item) => item.id !== id),
+        }));
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach((patch) => patch.undo());
+        }
+      },
       invalidatesTags: ['Desk', 'History'],
     }),
     postClip: build.mutation<
@@ -150,12 +196,44 @@ export const groundedApi = createApi({
   }),
 });
 
+function patchBook(
+  dispatch: (action: ReturnType<typeof groundedApi.util.updateQueryData>) => { undo: () => void },
+  write: (day: DayRecord) => DayRecord | null,
+) {
+  const timezone = deviceTimezone();
+  return [
+    dispatch(
+      groundedApi.util.updateQueryData('getHistory', timezone, (days) => {
+        for (let index = days.length - 1; index >= 0; index -= 1) {
+          const next = write(days[index]);
+          if (next == null) {
+            days.splice(index, 1);
+          } else {
+            Object.assign(days[index], next);
+          }
+        }
+      }),
+    ),
+    dispatch(
+      groundedApi.util.updateQueryData('getDesk', timezone, (desk) => {
+        if (desk.today) {
+          desk.today = write(desk.today);
+        }
+        if (desk.yesterday) {
+          desk.yesterday = write(desk.yesterday);
+        }
+      }),
+    ),
+  ];
+}
+
 export const {
   useGetDeskQuery,
   useGetHistoryQuery,
   usePlanMorningMutation,
   useReflectEveningMutation,
   useHearClipMutation,
+  useLazyGetClipQuery,
   useExtractMorningMutation,
   usePostClipMutation,
   useRenameDayMutation,

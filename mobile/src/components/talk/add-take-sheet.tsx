@@ -76,6 +76,7 @@ export function AddTakeSheet({
   const [words, setWords] = useState('');
   const [lines, setLines] = useState<PlanLine[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [clipKey, setClipKey] = useState<string | null>(null);
   const keptWords = useRef('');
 
   useEffect(() => {
@@ -86,6 +87,7 @@ export function AddTakeSheet({
 
   useEffect(() => {
     if (!open) {
+      setClipKey(null);
       return;
     }
     void AudioModule.requestRecordingPermissionsAsync().then((permission) => {
@@ -130,6 +132,9 @@ export function AddTakeSheet({
         const heard = await hearClip({ uri }).unwrap();
         if (heard.transcript.trim().length > 0) {
           setWords((current) => joinWords(current, heard.transcript));
+        }
+        if (heard.storageKey) {
+          setClipKey(heard.storageKey);
         }
       }
       setNote('Fix anything we misheard, then continue.');
@@ -188,7 +193,13 @@ export function AddTakeSheet({
       return;
     }
     try {
-      await planMorning({ timezone, transcript, title: null, commitments }).unwrap();
+      await planMorning({
+        timezone,
+        transcript,
+        title: null,
+        storageKey: clipKey,
+        commitments,
+      }).unwrap();
       await rememberWords(dayDate, transcript);
       reset();
       onClose();
@@ -203,6 +214,7 @@ export function AddTakeSheet({
     setLines([]);
     setNote('Tap the mic and speak.');
     setBusy(null);
+    setClipKey(null);
   }
 
   return (

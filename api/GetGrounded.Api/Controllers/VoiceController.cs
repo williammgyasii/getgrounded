@@ -28,7 +28,7 @@ public sealed class VoiceController(AuthService auth, ClipService clips) : Contr
         try
         {
             var heard = await clips.HearAsync(user.Id, clip, cancellationToken);
-            return Ok(new { transcript = heard.Transcript });
+            return Ok(new { transcript = heard.Transcript, storageKey = heard.StorageKey });
         }
         catch (ArgumentException ex)
         {
@@ -93,6 +93,19 @@ public sealed class VoiceController(AuthService auth, ClipService clips) : Contr
         {
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "model" });
         }
+    }
+
+    [HttpGet("clips/{clipId:guid}")]
+    public async Task<IActionResult> Play(Guid clipId, CancellationToken cancellationToken)
+    {
+        var user = await IdentifyAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var clip = await clips.PlayAsync(user.Id, clipId, cancellationToken);
+        return clip is null ? NotFound() : File(clip.Bytes, clip.ContentType);
     }
 
     [HttpPost("clips")]

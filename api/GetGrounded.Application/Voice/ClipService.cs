@@ -21,7 +21,7 @@ public sealed class ClipService(
     {
         RequireClip(clip);
         _log.LogInformation("hear started user={UserId} bytes={Bytes} type={Type}", userId, clip.Bytes.Length, clip.ContentType);
-        await audio.PutAsync(userId, "MORNING_PLAN", clip, cancellationToken);
+        var key = await audio.PutAsync(userId, "MORNING_PLAN", clip, cancellationToken);
         var heard = await speech.HearAsync(clip, cancellationToken);
         if (string.IsNullOrWhiteSpace(heard.Transcript))
         {
@@ -30,7 +30,7 @@ public sealed class ClipService(
         }
 
         _log.LogInformation("hear ok user={UserId} chars={Chars}", userId, heard.Transcript.Length);
-        return heard;
+        return heard with { StorageKey = key };
     }
 
     public async Task<MorningDraft> ExtractMorningAsync(
@@ -90,6 +90,17 @@ public sealed class ClipService(
             cancellationToken);
 
         return await book.GetDeskAsync(userId, timezone, cancellationToken);
+    }
+
+    public async Task<StoredClip?> PlayAsync(Guid userId, Guid clipId, CancellationToken cancellationToken)
+    {
+        var row = await book.GetClipAsync(userId, clipId, cancellationToken);
+        if (row?.StorageKey is null)
+        {
+            return null;
+        }
+
+        return await audio.GetAsync(row.StorageKey, cancellationToken);
     }
 
     private static void RequireClip(HearClip clip)

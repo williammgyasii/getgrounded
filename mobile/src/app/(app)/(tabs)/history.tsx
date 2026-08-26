@@ -1,12 +1,13 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SymbolView } from 'expo-symbols';
 
 import { useAuthUser } from '@/components/auth/auth-session';
 import { HomeTopBar } from '@/components/home/home-top-bar';
 import { agendaSummary } from '@/components/talk/day-agenda';
+import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -26,6 +27,9 @@ export default function TasksScreen() {
   const signedIn = user != null;
   const { data: days = [], refetch } = useGetHistoryQuery(deviceTimezone(), { skip: !signedIn });
   const [removeDay] = useRemoveDayMutation();
+  const [pending, setPending] = useState<{ id: string; title: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -35,15 +39,20 @@ export default function TasksScreen() {
     }, [signedIn, refetch]),
   );
 
-  function onDelete(id: string, title: string) {
-    Alert.alert('Delete this day?', title, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => void removeDay(id),
-      },
-    ]);
+  async function confirmDelete() {
+    if (!pending) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await removeDay(pending.id).unwrap();
+      setPending(null);
+    } catch {
+      setError('Could not delete this day. Try again.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -85,7 +94,10 @@ export default function TasksScreen() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Delete day"
-                      onPress={() => onDelete(day.id, day.title ?? day.localDate)}
+                      onPress={() => {
+                        setError(null);
+                        setPending({ id: day.id, title: day.title ?? day.localDate });
+                      }}
                       hitSlop={8}
                       style={styles.trash}>
                       <SymbolView
@@ -101,6 +113,21 @@ export default function TasksScreen() {
           })
         )}
       </ScrollView>
+      <DangerConfirm
+        open={pending != null}
+        title="Delete this day?"
+        body={pending ? `${pending.title} and every task on it will be gone.` : ''}
+        confirmLabel="Delete day"
+        busy={busy}
+        error={error}
+        onCancel={() => {
+          if (!busy) {
+            setPending(null);
+            setError(null);
+          }
+        }}
+        onConfirm={() => void confirmDelete()}
+      />
     </ThemedView>
   );
 }

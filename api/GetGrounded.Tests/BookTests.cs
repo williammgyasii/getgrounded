@@ -1,4 +1,5 @@
 using GetGrounded.Application.Book;
+using GetGrounded.Application.Voice;
 using GetGrounded.Tests.Fakes;
 
 namespace GetGrounded.Tests;
@@ -7,6 +8,7 @@ public class BookTests
 {
     private static readonly DateTimeOffset NoonUtc = DateTimeOffset.Parse("2026-08-26T12:00:00Z");
     private static readonly Guid Person = Guid.Parse("0198c0a0-0000-7000-8000-000000000001");
+    private static readonly Guid OtherPerson = Guid.Parse("0198c0a0-0000-7000-8000-000000000002");
 
     [Fact]
     public async Task Morning_writes_planned_commitments_and_counts_as_showing_up()
@@ -44,6 +46,43 @@ public class BookTests
         Assert.Equal("Heavy gym Tuesday", day.Title);
         var desk = await book.GetDeskAsync(Person, "UTC");
         Assert.Equal("Heavy gym Tuesday", desk.Today!.Title);
+    }
+
+    [Fact]
+    public async Task Morning_with_storage_key_is_playable()
+    {
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+
+        var day = await book.PlanMorningAsync(
+            Person, "UTC", "Gym.", [new PlannedItem("Gym")], "Gym day", "user/morning/clip.m4a");
+        Assert.True(day.Clips[0].Playable);
+    }
+
+    [Fact]
+    public async Task GetClipAsync_wrong_user_returns_null()
+    {
+        const string storageKey = "user/morning/clip.m4a";
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+
+        var day = await book.PlanMorningAsync(
+            Person, "UTC", "Gym.", [new PlannedItem("Gym")], "Gym day", storageKey);
+        var clipId = day.Clips[0].Id;
+
+        var strangerClip = await book.GetClipAsync(OtherPerson, clipId);
+        var ownerClip = await book.GetClipAsync(Person, clipId);
+
+        Assert.Null(strangerClip);
+        Assert.NotNull(ownerClip);
+        Assert.Equal(storageKey, ownerClip!.StorageKey);
+    }
+
+    [Fact]
+    public async Task Morning_without_storage_key_is_not_playable()
+    {
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));
+
+        var day = await book.PlanMorningAsync(Person, "UTC", "Gym.", [new PlannedItem("Gym")]);
+        Assert.False(day.Clips[0].Playable);
     }
 
     [Fact]
@@ -110,6 +149,21 @@ public class BookTests
         Assert.True(await book.RemoveDayAsync(Person, day.Id));
         var desk = await book.GetDeskAsync(Person, "UTC");
         Assert.Null(desk.Today);
+    }
+
+    [Fact]
+    public async Task RemoveDay_deletes_the_audio_object()
+    {
+        var audio = new GetGrounded.Infrastructure.Voice.MemoryAudioStore();
+        var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc), audio);
+        var key = await audio.PutAsync(
+            Person, "MORNING_PLAN", new HearClip([1, 2, 3], "audio/mp4"), default);
+
+        var day = await book.PlanMorningAsync(
+            Person, "UTC", "Gym.", [new PlannedItem("Gym")], "Gym day", key);
+
+        Assert.True(await book.RemoveDayAsync(Person, day.Id));
+        Assert.Null(await audio.GetAsync(key, default));
     }
 
     [Fact]

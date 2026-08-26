@@ -23,6 +23,7 @@ export type ClipRecord = {
   kind: string;
   transcript: string;
   createdAt?: string | null;
+  playable?: boolean;
 };
 
 export type DayRecord = {

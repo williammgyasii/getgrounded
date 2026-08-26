@@ -8,13 +8,14 @@ using GetGrounded.Infrastructure.Book;
 using GetGrounded.Infrastructure.Health;
 using GetGrounded.Infrastructure.Time;
 using GetGrounded.Infrastructure.Voice;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GetGrounded.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHttpClient("google");
         services.AddHttpClient("elevenlabs");
@@ -23,7 +24,14 @@ public static class DependencyInjection
         services.AddSingleton<IBookStore, PostgresBookStore>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IDatabasePing, NpgsqlDatabasePing>();
-        services.AddSingleton<IAudioStore, MemoryAudioStore>();
+        if (R2AudioStore.IsConfigured(configuration))
+        {
+            services.AddSingleton<IAudioStore, R2AudioStore>();
+        }
+        else
+        {
+            services.AddSingleton<IAudioStore, MemoryAudioStore>();
+        }
         services.AddSingleton<ISpeechToText, ElevenLabsSpeechToText>();
         services.AddSingleton<ILanguageModel, VertexLanguageModel>();
         return services;

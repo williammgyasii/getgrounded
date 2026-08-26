@@ -72,6 +72,7 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
                 body.Transcript,
                 items,
                 body.Title,
+                body.StorageKey,
                 cancellationToken));
         }
         catch (ArgumentException ex)
@@ -189,7 +190,8 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         string Timezone,
         string Transcript,
         string? Title,
-        IReadOnlyList<CommitmentDraft>? Commitments);
+        IReadOnlyList<CommitmentDraft>? Commitments,
+        string? StorageKey = null);
 
     public sealed record EveningRequest(
         string Timezone,
@@ -199,9 +201,9 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
 
     public sealed record CommitmentDraft(
         string Title,
-        int? PlannedDurationMinutes,
-        int? PlannedStartMinute,
-        string? LifeArea);
+        int? PlannedDurationMinutes = null,
+        int? PlannedStartMinute = null,
+        string? LifeArea = null);
     public sealed record OutcomeDraft(Guid Id, string Status, int? ActualDurationMinutes, string? Reason);
     public sealed record WinDraft(string Title);
     public sealed record RenameRequest(string Title);

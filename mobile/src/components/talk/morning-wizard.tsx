@@ -116,6 +116,7 @@ export function MorningWizard() {
   const [dragging, setDragging] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
+  const [clipKey, setClipKey] = useState<string | null>(null);
   const keptWords = useRef('');
   const extractedFor = useRef('');
 
@@ -192,6 +193,9 @@ export function MorningWizard() {
       const heard = await hearClip({ uri }).unwrap();
       if (heard.transcript.trim().length > 0) {
         setWords((current) => joinWords(current, heard.transcript));
+      }
+      if (heard.storageKey) {
+        setClipKey(heard.storageKey);
       }
       setNote('Fix anything we misheard, then continue.');
     } catch (error) {
@@ -290,13 +294,19 @@ export function MorningWizard() {
         timezone,
         transcript,
         title: dayTitle.trim() || null,
+        storageKey: clipKey,
         commitments,
       }).unwrap();
       await rememberWords(saved.localDate, transcript);
+      setClipKey(null);
       setStep('record');
       router.navigate('/history' as Href);
-    } catch {
-      setCheckError('Could not save the morning plan.');
+    } catch (err) {
+      const message =
+        err && typeof err === 'object' && 'data' in err
+          ? String((err as { data?: { error?: string } }).data?.error ?? '')
+          : '';
+      setCheckError(message || 'Could not save the morning plan.');
     }
   }
 

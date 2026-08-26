@@ -1,11 +1,12 @@
 using GetGrounded.Application.Time;
+using GetGrounded.Application.Voice;
 using GetGrounded.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GetGrounded.Application.Book;
 
-public sealed class BookService(IBookStore book, IClock clock, ILogger<BookService>? log = null)
+public sealed class BookService(IBookStore book, IClock clock, IAudioStore? audio = null, ILogger<BookService>? log = null)
 {
     private readonly ILogger _log = log ?? NullLogger<BookService>.Instance;
 
@@ -26,6 +27,7 @@ public sealed class BookService(IBookStore book, IClock clock, ILogger<BookServi
         string transcript,
         IReadOnlyList<PlannedItem> items,
         string? title = null,
+        string? storageKey = null,
         CancellationToken cancellationToken = default)
     {
         RequireSpeech(transcript);
@@ -43,6 +45,7 @@ public sealed class BookService(IBookStore book, IClock clock, ILogger<BookServi
             transcript,
             planned,
             named,
+            storageKey,
             cancellationToken);
         _log.LogInformation(
             "morning saved user={UserId} date={Date} items={Items} titled={Titled}",
@@ -123,9 +126,28 @@ public sealed class BookService(IBookStore book, IClock clock, ILogger<BookServi
         return book.RenameDayAsync(userId, dayId, named, cancellationToken);
     }
 
-    public Task<bool> RemoveDayAsync(Guid userId, Guid dayId, CancellationToken cancellationToken = default)
+    public async Task<bool> RemoveDayAsync(Guid userId, Guid dayId, CancellationToken cancellationToken = default)
     {
-        return book.RemoveDayAsync(userId, dayId, cancellationToken);
+        var keys = await book.ListClipKeysAsync(userId, dayId, cancellationToken);
+        var removed = await book.RemoveDayAsync(userId, dayId, cancellationToken);
+        if (audio is null)
+        {
+            return removed;
+        }
+
+        foreach (var key in keys)
+        {
+            try
+            {
+                await audio.DeleteAsync(key, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "audio delete failed key={Key}", key);
+            }
+        }
+
+        return removed;
     }
 
     public Task<DayRecord?> MarkCommitmentAsync(
@@ -149,6 +171,14 @@ public sealed class BookService(IBookStore book, IClock clock, ILogger<BookServi
         CancellationToken cancellationToken = default)
     {
         return book.RemoveCommitmentAsync(userId, commitmentId, cancellationToken);
+    }
+
+    public Task<ClipPointer?> GetClipAsync(
+        Guid userId,
+        Guid clipId,
+        CancellationToken cancellationToken = default)
+    {
+        return book.GetClipAsync(userId, clipId, cancellationToken);
     }
 
     private static void RequireSpeech(string transcript)

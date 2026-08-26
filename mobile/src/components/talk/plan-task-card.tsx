@@ -96,7 +96,7 @@ export function PlanTaskCard({
             </ThemedText>
           </Pressable>
           <View style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="small" style={{ color: theme.text }}>
+            <ThemedText style={[styles.chipText, { color: theme.text }]}>
               {areaLabel(line.area)}
             </ThemedText>
           </View>
@@ -260,9 +260,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   chip: {
-    borderRadius: ChipRadius,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  chipText: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontFamily: FontFamily.medium,
   },
   mark: {
     width: 20,

@@ -39,6 +39,10 @@ public class ClipTests
 
         Assert.Equal(HttpStatusCode.OK, heard.StatusCode);
         Assert.Equal("Gym at 7 and read.", body!.Transcript);
+        Assert.False(string.IsNullOrWhiteSpace(body.StorageKey));
+        var store = factory.Services.GetRequiredService<IAudioStore>();
+        var saved = await store.GetAsync(body.StorageKey, CancellationToken.None);
+        Assert.NotNull(saved);
         Assert.Equal(1, speech.Calls);
         Assert.Null(desk!.Today);
         Assert.Equal(0, desk.StreakDays);
@@ -184,6 +188,87 @@ public class ClipTests
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Play_returns_uploaded_bytes()
+    {
+        var bytes = new byte[] { 1, 2, 3, 4 };
+        using var factory = CreateFactory(
+            new StubSpeechToText("Gym at 7."),
+            new StubLanguageModel("""{"commitments":[{"title":"Gym"}]}"""));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        using var form = AudioForm("MORNING_PLAN", bytes);
+        var heard = await client.PostAsync("/voice/hear", form);
+        var hearBody = await heard.Content.ReadFromJsonAsync<HearBody>(Json);
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = hearBody!.Transcript,
+            title = "Gym day",
+            storageKey = hearBody.StorageKey,
+            commitments = new[] { new { title = "Gym" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        var play = await client.GetAsync($"/voice/clips/{day!.Clips[0].Id}");
+        var played = await play.Content.ReadAsByteArrayAsync();
+
+        Assert.Equal(HttpStatusCode.OK, play.StatusCode);
+        Assert.Equal("audio/mp4", play.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(bytes, played);
+    }
+
+    [Fact]
+    public async Task Play_unknown_id_is_not_found()
+    {
+        using var factory = CreateFactory(
+            new StubSpeechToText("x"),
+            new StubLanguageModel("""{"commitments":[]}"""));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var response = await client.GetAsync($"/voice/clips/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Play_without_storage_key_is_not_found()
+    {
+        using var factory = CreateFactory(
+            new StubSpeechToText("x"),
+            new StubLanguageModel("""{"commitments":[]}"""));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Typed plan.",
+            title = "Typed",
+            commitments = new[] { new { title = "Gym" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        var response = await client.GetAsync($"/voice/clips/{day!.Clips[0].Id}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Play_without_token_is_unauthorized()
+    {
+        using var factory = CreateFactory(
+            new StubSpeechToText("x"),
+            new StubLanguageModel("""{"commitments":[]}"""));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/voice/clips/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private static MultipartFormDataContent AudioForm(string kind, byte[] bytes, string contentType = "audio/mp4")
     {
         var form = new MultipartFormDataContent();
@@ -214,7 +299,7 @@ public class ClipTests
         });
     }
 
-    private sealed record HearBody(string Transcript);
+    private sealed record HearBody(string Transcript, string? StorageKey);
     private sealed record ExtractBody(string? Title, IReadOnlyList<ExtractItem> Commitments);
     private sealed record ExtractItem(
         string Title,
@@ -222,6 +307,7 @@ public class ClipTests
         int? PlannedStartMinute,
         string? LifeArea);
     private sealed record DeskBody(int StreakDays, DayBody? Today);
-    private sealed record DayBody(IReadOnlyList<CommitmentBody> Commitments);
+    private sealed record DayBody(IReadOnlyList<CommitmentBody> Commitments, IReadOnlyList<ClipPlayBody> Clips);
+    private sealed record ClipPlayBody(Guid Id, bool Playable);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);
 }

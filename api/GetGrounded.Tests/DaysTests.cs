@@ -90,6 +90,64 @@ public class DaysTests
     }
 
     [Fact]
+    public async Task Morning_with_storage_key_is_playable()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Gym.",
+            title = "Gym day",
+            storageKey = "user/morning/clip.m4a",
+            commitments = new[] { new { title = "Gym" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, written.StatusCode);
+        Assert.True(day!.Clips[0].Playable);
+    }
+
+    [Fact]
+    public async Task Morning_accepts_the_phone_plan_shape()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "America/New_York",
+            transcript = "Gym at 6, then cook dinner.",
+            title = "New day",
+            commitments = new object[]
+            {
+                new
+                {
+                    title = "Gym",
+                    plannedDurationMinutes = 30,
+                    plannedStartMinute = 18 * 60 + 21,
+                    lifeArea = "HEALTH"
+                },
+                new
+                {
+                    title = "Cook dinner",
+                    plannedDurationMinutes = 45,
+                    plannedStartMinute = 19 * 60,
+                    lifeArea = "HOME"
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, written.StatusCode);
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+        Assert.Equal("New day", day!.Title);
+        Assert.Equal(2, day.Commitments.Count);
+    }
+
+    [Fact]
     public async Task Day_title_check_and_delete_round_trip()
     {
         using var factory = CreateFactory();
@@ -147,7 +205,7 @@ public class DaysTests
         IReadOnlyList<CommitmentBody> Commitments,
         IReadOnlyList<WinBody> Wins,
         IReadOnlyList<ClipBody> Clips);
-    private sealed record ClipBody(string Kind, string Transcript);
+    private sealed record ClipBody(string Kind, string Transcript, bool Playable);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);
     private sealed record WinBody(string Title);
 }

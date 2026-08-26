@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { AddTakeSheet } from '@/components/talk/add-take-sheet';
+import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { DayWords, type WordTake } from '@/components/talk/day-words';
 import { RoundProgress } from '@/components/talk/round-progress';
 import { TaskRows } from '@/components/talk/task-rows';
@@ -53,6 +54,9 @@ export default function DayScreen() {
   const [removeDay] = useRemoveDayMutation();
   const [markCommitment] = useMarkCommitmentMutation();
   const [removeCommitment] = useRemoveCommitmentMutation();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     setTitleDraft(day?.title ?? '');
@@ -83,6 +87,7 @@ export default function DayScreen() {
       id: clip.id,
       transcript: clip.transcript,
       label: clip.kind === 'EVENING_REFLECTION' ? 'Evening' : `Take ${index + 1}`,
+      playable: clip.playable === true,
     }));
   const transcripts = useMemo(
     () => (clips.length > 0 ? clips : savedWords),
@@ -102,21 +107,21 @@ export default function DayScreen() {
     await renameDay({ id: day.id, title: next });
   }
 
-  function confirmDeleteDay() {
+  async function confirmDeleteDay() {
     if (!day) {
       return;
     }
-    Alert.alert('Delete this day?', day.title ?? day.localDate, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void removeDay(day.id);
-          router.back();
-        },
-      },
-    ]);
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await removeDay(day.id).unwrap();
+      setDeleteOpen(false);
+      router.back();
+    } catch {
+      setDeleteError('Could not delete this day. Try again.');
+    } finally {
+      setDeleteBusy(false);
+    }
   }
 
   return (
@@ -188,7 +193,7 @@ export default function DayScreen() {
               setWordsOpen(true);
             }}
             style={styles.menuItem}>
-            <ThemedText>Your transcript</ThemedText>
+            <ThemedText>Recordings</ThemedText>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -203,7 +208,8 @@ export default function DayScreen() {
             accessibilityRole="button"
             onPress={() => {
               setMenuOpen(false);
-              confirmDeleteDay();
+              setDeleteError(null);
+              setDeleteOpen(true);
             }}
             style={styles.menuItem}>
             <ThemedText style={{ color: '#C23B3B' }}>Delete day</ThemedText>
@@ -250,6 +256,21 @@ export default function DayScreen() {
           </Animated.View>
         )}
       </ScrollView>
+      <DangerConfirm
+        open={deleteOpen}
+        title="Delete this day?"
+        body={`${day?.title ?? day?.localDate ?? 'This day'} and every task on it will be gone.`}
+        confirmLabel="Delete day"
+        busy={deleteBusy}
+        error={deleteError}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setDeleteOpen(false);
+            setDeleteError(null);
+          }
+        }}
+        onConfirm={() => void confirmDeleteDay()}
+      />
       <DayWords open={wordsOpen} takes={transcripts} onClose={() => setWordsOpen(false)} />
       {day ? (
         <AddTakeSheet open={addOpen} dayDate={day.localDate} onClose={() => setAddOpen(false)} />

@@ -9,6 +9,7 @@ public interface IBookStore
         string transcript,
         IReadOnlyList<PlannedItem> items,
         string? title = null,
+        string? storageKey = null,
         CancellationToken cancellationToken = default);
 
     Task<DayRecord?> SaveEveningAsync(
@@ -43,6 +44,11 @@ public interface IBookStore
 
     Task<bool> RemoveDayAsync(Guid userId, Guid dayId, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<string>> ListClipKeysAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default);
+
     Task<DayRecord?> MarkCommitmentAsync(
         Guid userId,
         Guid commitmentId,
@@ -52,5 +58,10 @@ public interface IBookStore
     Task<DayRecord?> RemoveCommitmentAsync(
         Guid userId,
         Guid commitmentId,
+        CancellationToken cancellationToken = default);
+
+    Task<ClipPointer?> GetClipAsync(
+        Guid userId,
+        Guid clipId,
         CancellationToken cancellationToken = default);
 }

@@ -26,7 +26,9 @@ public sealed record CommitmentRecord(
 
 public sealed record WinRecord(Guid Id, string Title);
 
-public sealed record ClipRecord(Guid Id, string Kind, string Transcript, DateTimeOffset? CreatedAt = null);
+public sealed record ClipRecord(Guid Id, string Kind, string Transcript, DateTimeOffset? CreatedAt = null, bool Playable = false);
+
+public sealed record ClipPointer(Guid Id, string? StorageKey);
 
 public sealed record DayRecord(
     Guid Id,

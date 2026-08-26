@@ -11,8 +11,11 @@ public static class LocalClock
     public static DateTimeOffset At(string timezone, DateOnly date, int minute)
     {
         var zone = Zone(timezone);
-        var local = date.ToDateTime(TimeOnly.MinValue).AddMinutes(minute);
-        return new DateTimeOffset(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), zone.GetUtcOffset(local));
+        var local = DateTime.SpecifyKind(
+            date.ToDateTime(TimeOnly.MinValue).AddMinutes(minute),
+            DateTimeKind.Unspecified);
+        var utc = TimeZoneInfo.ConvertTimeToUtc(local, zone);
+        return new DateTimeOffset(utc, TimeSpan.Zero);
     }
 
     public static TimeZoneInfo Zone(string timezone)

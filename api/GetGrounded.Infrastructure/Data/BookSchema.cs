@@ -56,6 +56,8 @@ internal static class BookSchema
             );
 
             ALTER TABLE days ADD COLUMN IF NOT EXISTS title TEXT NULL;
+            ALTER TABLE commitments ADD COLUMN IF NOT EXISTS planned_at TIMESTAMPTZ NULL;
+            ALTER TABLE commitments ADD COLUMN IF NOT EXISTS life_area TEXT NULL;
 
             CREATE TABLE IF NOT EXISTS voice_sessions (
               id UUID PRIMARY KEY,
@@ -68,6 +70,8 @@ internal static class BookSchema
               storage_key TEXT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT now()
             );
+
+            ALTER TABLE voice_sessions ADD COLUMN IF NOT EXISTS storage_key TEXT NULL;
 
             CREATE TABLE IF NOT EXISTS commitments (
               id UUID PRIMARY KEY,

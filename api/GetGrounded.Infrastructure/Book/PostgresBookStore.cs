@@ -15,6 +15,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         string transcript,
         IReadOnlyList<PlannedItem> items,
         string? title = null,
+        string? storageKey = null,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
@@ -29,7 +30,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             dayId,
             "MORNING_PLAN",
             transcript,
-            cancellationToken);
+            cancellationToken,
+            storageKey);
 
         if (items.Count > 0)
         {
@@ -60,7 +62,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
                     new NpgsqlParameter { Value = userIds },
                     new NpgsqlParameter { Value = dayIds },
                     new NpgsqlParameter { Value = titles },
-                    new NpgsqlParameter { Value = starts },
+                    new NpgsqlParameter { Value = starts, DataTypeName = "timestamptz[]" },
                     new NpgsqlParameter { Value = durations },
                     new NpgsqlParameter { Value = areas },
                     new NpgsqlParameter { Value = sorts }
@@ -278,6 +280,38 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             : null;
     }
 
+    public async Task<IReadOnlyList<string>> ListClipKeysAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await BookSchema.EnsureAsync(connection, cancellationToken);
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT storage_key
+            FROM voice_sessions
+            WHERE user_id = $1 AND day_id = $2 AND storage_key IS NOT NULL
+            """,
+            connection)
+        {
+            Parameters =
+            {
+                new NpgsqlParameter { Value = userId },
+                new NpgsqlParameter { Value = dayId }
+            }
+        };
+
+        var keys = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            keys.Add(reader.GetString(0));
+        }
+
+        return keys;
+    }
+
     public async Task<bool> RemoveDayAsync(Guid userId, Guid dayId, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
@@ -363,6 +397,39 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             : null;
     }
 
+    public async Task<ClipPointer?> GetClipAsync(
+        Guid userId,
+        Guid clipId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await BookSchema.EnsureAsync(connection, cancellationToken);
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT id, storage_key
+            FROM voice_sessions
+            WHERE id = $1 AND user_id = $2
+            """,
+            connection)
+        {
+            Parameters =
+            {
+                new NpgsqlParameter { Value = clipId },
+                new NpgsqlParameter { Value = userId }
+            }
+        };
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new ClipPointer(
+            reader.GetGuid(0),
+            reader.IsDBNull(1) ? null : reader.GetString(1));
+    }
+
     private async Task<Guid> UpsertDayAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction tx,
@@ -405,12 +472,13 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         Guid dayId,
         string kind,
         string transcript,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? storageKey = null)
     {
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO voice_sessions (id, user_id, day_id, kind, transcript, processing_status)
-            VALUES ($1, $2, $3, $4, $5, 'RECEIVED')
+            INSERT INTO voice_sessions (id, user_id, day_id, kind, transcript, processing_status, storage_key)
+            VALUES ($1, $2, $3, $4, $5, 'RECEIVED', $6)
             """,
             connection, tx)
         {
@@ -420,7 +488,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
                 new NpgsqlParameter { Value = userId },
                 new NpgsqlParameter { Value = dayId },
                 new NpgsqlParameter { Value = kind },
-                new NpgsqlParameter { Value = transcript }
+                new NpgsqlParameter { Value = transcript },
+                new NpgsqlParameter { Value = (object?)storageKey ?? DBNull.Value }
             }
         };
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -526,7 +595,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         var clips = new List<ClipRecord>();
         await using (var list = new NpgsqlCommand(
             """
-            SELECT id, kind, transcript, created_at
+            SELECT id, kind, transcript, created_at, storage_key IS NOT NULL
             FROM voice_sessions
             WHERE user_id = $1 AND day_id = $2
             ORDER BY created_at
@@ -547,7 +616,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
                     reader.GetGuid(0),
                     reader.GetString(1),
                     reader.GetString(2),
-                    reader.IsDBNull(3) ? null : reader.GetFieldValue<DateTimeOffset>(3)));
+                    reader.IsDBNull(3) ? null : reader.GetFieldValue<DateTimeOffset>(3),
+                    reader.GetBoolean(4)));
             }
         }
 

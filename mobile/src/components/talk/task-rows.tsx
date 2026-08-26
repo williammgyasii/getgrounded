@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
+import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -19,6 +21,7 @@ export function TaskRows({
   onRemove?: (item: AgendaTask) => void;
 }) {
   const theme = useTheme();
+  const [pending, setPending] = useState<AgendaTask | null>(null);
   if (items.length === 0) {
     return <ThemedText themeColor="textSecondary">No tasks on this day yet.</ThemedText>;
   }
@@ -68,19 +71,17 @@ export function TaskRows({
               <View style={styles.meta}>
                 {item.plannedDurationMinutes ? (
                   <View style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-                    <ThemedText type="small">{minutesLabel(item.plannedDurationMinutes)}</ThemedText>
+                    <ThemedText style={styles.chipText}>{minutesLabel(item.plannedDurationMinutes)}</ThemedText>
                   </View>
                 ) : null}
                 <View style={[styles.chip, { backgroundColor: areaTint(item.lifeArea) }]}>
-                  <ThemedText type="small" style={{ color: '#FFFFFF' }}>
+                  <ThemedText style={[styles.chipText, { color: '#FFFFFF' }]}>
                     {areaLabel(item.lifeArea)}
                   </ThemedText>
                 </View>
                 {item.fresh ? (
                   <View style={[styles.chip, { backgroundColor: theme.accent }]}>
-                    <ThemedText type="small" style={{ color: '#FFFFFF' }}>
-                      New
-                    </ThemedText>
+                    <ThemedText style={[styles.chipText, { color: '#FFFFFF' }]}>New</ThemedText>
                   </View>
                 ) : null}
               </View>
@@ -92,7 +93,7 @@ export function TaskRows({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Delete ${item.title}`}
-                onPress={() => onRemove(item)}
+                onPress={() => setPending(item)}
                 hitSlop={8}
                 style={styles.trash}>
                 <SymbolView
@@ -105,6 +106,19 @@ export function TaskRows({
           </Animated.View>
         );
       })}
+      <DangerConfirm
+        open={pending != null}
+        title="Delete this task?"
+        body={pending ? `${pending.title} will come off this day.` : ''}
+        confirmLabel="Delete task"
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          if (pending) {
+            onRemove?.(pending);
+          }
+          setPending(null);
+        }}
+      />
     </View>
   );
 }
@@ -145,12 +159,17 @@ const styles = StyleSheet.create({
   meta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 4,
   },
   chip: {
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  chipText: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontFamily: FontFamily.medium,
   },
   time: {
     minWidth: 52,
