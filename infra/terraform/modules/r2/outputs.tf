@@ -1,4 +1,4 @@
 output "bucket_name" {
-  description = "Intended private audio bucket name. Not created yet."
-  value       = local.bucket_name
+  description = "Private audio bucket name"
+  value       = cloudflare_r2_bucket.audio.name
 }

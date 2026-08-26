@@ -12,3 +12,9 @@ variable "name_prefix" {
   description = "Shared name prefix, usually getgrounded"
   type        = string
 }
+
+variable "region" {
+  description = "Cloud SQL region"
+  type        = string
+  default     = "us-central1"
+}

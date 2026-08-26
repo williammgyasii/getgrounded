@@ -1,0 +1,106 @@
+name: Infra (dev)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/infra-dev.yml"
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/infra-dev.yml"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply Terraform (dev). Read the full plan first."
+        type: boolean
+        default: false
+
+concurrency:
+  group: infra-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate (dev)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"
+      - name: Format
+        run: terraform fmt -check -recursive
+        working-directory: infra/terraform
+      - name: Validate
+        working-directory: infra/terraform/environments/dev
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+  plan:
+    name: Plan (dev)
+    needs: [validate]
+    if: github.event_name != 'workflow_dispatch' || inputs.apply == false
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+      CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      GOOGLE_CLOUD_QUOTA_PROJECT: get-ground-448ca
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/317766274600/locations/global/workloadIdentityPools/github-pool/providers/github
+          service_account: github-deploy@get-ground-448ca.iam.gserviceaccount.com
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"
+      - name: Plan
+        if: env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != ''
+        working-directory: infra/terraform/environments/dev
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color
+      - name: Skip plan
+        if: env.AWS_ACCESS_KEY_ID == '' || env.AWS_SECRET_ACCESS_KEY == ''
+        run: echo "Need R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY. Validate already ran."
+
+  apply:
+    name: Apply (dev)
+    needs: [validate]
+    if: github.event_name == 'workflow_dispatch' && inputs.apply
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+      CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      GOOGLE_CLOUD_QUOTA_PROJECT: get-ground-448ca
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/317766274600/locations/global/workloadIdentityPools/github-pool/providers/github
+          service_account: github-deploy@get-ground-448ca.iam.gserviceaccount.com
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"
+      - name: Apply
+        working-directory: infra/terraform/environments/dev
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve

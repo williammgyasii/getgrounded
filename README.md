@@ -11,10 +11,7 @@ mobile/                  Expo app (React Native + TypeScript)
 api/GetGrounded.Domain   Domain rules and entities
 api/GetGrounded.Api      HTTP adapters
 api/GetGrounded.Tests    Tests first, then implementation
-infra/terraform          R2 + Render objects (`dev`, `prod`)
-infra/cloudflare         Worker / Workflow source (Wrangler)
-infra/firebase           Auth, Analytics, FCM, App Check
-infra/elevenlabs         Voice agents (CLI)
+infra/terraform          Cloudflare + GCP (dev). Prod folder is a stub.
 docs/                    Specs and plans
 .github/workflows        CI
 ```
@@ -30,10 +27,10 @@ Already on this machine:
 | Node 26 / npm 11 | Expo |
 | .NET 10 | API |
 | Docker | API container |
-| Terraform 1.15 | R2 + Render objects (`dev`, `prod`) |
+| Terraform 1.15 | Cloudflare R2 |
 | GitHub CLI (`gh`) as `williammgyasii` | repo + PRs |
 | EAS CLI 22 | Expo development builds later |
-| Render CLI 2.24 | API + Postgres hosting |
+| gcloud | Cloud Run + Cloud SQL |
 | Wrangler 4.12 | Cloudflare Workers / R2 |
 | Firebase CLI 15 | Auth / App Check later |
 | ElevenLabs CLI 0.5 | Agents as code later |
@@ -68,15 +65,22 @@ cd api
 dotnet run --project GetGrounded.Api
 ```
 
-## CI
+## CI / CD
 
-GitHub Actions (`.github/workflows/ci.yml`) currently:
+Same repo, separate workflows (path filters):
 
-- builds the API
-- typechecks the Expo app
-- formats and validates Terraform (`dev` and `prod`)
+| Workflow | Runs when | Does |
+|---|---|---|
+| `.github/workflows/api-dev.yml` | `api/**` | Test. Deploy Cloud Run **dev** on `main` |
+| `.github/workflows/api-prod.yml` | `api/**` | Test. Prod Cloud Run only on **Run workflow** (refuses if the service is missing) |
+| `.github/workflows/mobile-dev.yml` | `mobile/**` | Typecheck. EAS **dev** only on **Run workflow** |
+| `.github/workflows/mobile-prod.yml` | `mobile/**` | Typecheck. EAS **prod** only on **Run workflow** |
+| `.github/workflows/infra-dev.yml` | `infra/terraform/**` | Terraform **dev**. Apply is manual |
+| `.github/workflows/infra-prod.yml` | `infra/terraform/**` | Terraform **prod**. Apply is manual |
 
-Domain tests are not in CI yet. They are still red on purpose until the first types exist.
+Mobile is not gated until we build the app.
+
+GitHub → GCP uses Workload Identity. No JSON key in the repo.
 
 ## GitHub
 

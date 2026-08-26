@@ -6,9 +6,5 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 5.0"
     }
-    render = {
-      source  = "render-oss/render"
-      version = "~> 1.9"
-    }
   }
 }

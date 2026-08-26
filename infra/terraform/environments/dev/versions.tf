@@ -6,9 +6,13 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 5.0"
     }
-    render = {
-      source  = "render-oss/render"
-      version = "~> 1.9"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
+    }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 6.0"
     }
   }
 }

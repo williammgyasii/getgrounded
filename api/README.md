@@ -12,7 +12,7 @@ dotnet test GetGrounded.slnx
 dotnet run --project GetGrounded.Api
 ```
 
-Docker image (used later on Render):
+Docker image (Cloud Run):
 
 ```bash
 docker build -t getgrounded-api .

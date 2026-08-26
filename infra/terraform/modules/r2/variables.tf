@@ -12,3 +12,14 @@ variable "name_prefix" {
   description = "Shared name prefix, usually getgrounded"
   type        = string
 }
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account that owns the private audio bucket"
+  type        = string
+}
+
+variable "location" {
+  description = "R2 location hint"
+  type        = string
+  default     = "ENAM"
+}

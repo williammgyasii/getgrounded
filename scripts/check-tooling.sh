@@ -16,7 +16,7 @@ command -v terraform >/dev/null && ok "terraform $(terraform version -json 2>/de
 echo
 echo "Useful soon"
 command -v eas >/dev/null && ok "eas $(eas --version 2>/dev/null | tail -1)" || missing "eas-cli"
-command -v render >/dev/null && ok "render $(render --version 2>/dev/null | head -1)" || missing "render"
+command -v gcloud >/dev/null && ok "gcloud $(gcloud version 2>/dev/null | head -1)" || missing "gcloud"
 command -v wrangler >/dev/null && ok "wrangler $(wrangler --version 2>/dev/null | head -1)" || missing "wrangler"
 command -v firebase >/dev/null && ok "firebase $(firebase --version 2>/dev/null | head -1)" || missing "firebase-tools"
 command -v elevenlabs >/dev/null && ok "elevenlabs $(elevenlabs --version 2>/dev/null | head -1)" || missing "elevenlabs"

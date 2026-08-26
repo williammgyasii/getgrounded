@@ -1,7 +1,17 @@
 provider "cloudflare" {
-  # Reads CLOUDFLARE_API_TOKEN from the environment when we plan/apply.
+  # Reads CLOUDFLARE_API_TOKEN or CLOUDFLARE_EMAIL + CLOUDFLARE_API_KEY.
 }
 
-provider "render" {
-  # Reads RENDER_API_KEY and RENDER_OWNER_ID when we plan/apply.
+provider "google" {
+  project               = "get-ground-448ca"
+  region                = "us-central1"
+  user_project_override = true
+  billing_project       = "get-ground-448ca"
+}
+
+provider "google-beta" {
+  project               = "get-ground-448ca"
+  region                = "us-central1"
+  user_project_override = true
+  billing_project       = "get-ground-448ca"
 }

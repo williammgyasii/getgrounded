@@ -8,6 +8,7 @@
 *.pem
 **/appsettings.*.local.json
 **/firebase-adminsdk*.json
+.wrangler/
 
 # Dependencies
 node_modules/

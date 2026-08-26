@@ -1,0 +1,69 @@
+name: API (prod)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "global.json"
+      - ".github/workflows/api-prod.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - "global.json"
+      - ".github/workflows/api-prod.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: api-prod-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet test GetGrounded.slnx --configuration Release --nologo
+
+  deploy:
+    name: Deploy Cloud Run (prod)
+    if: github.event_name == 'workflow_dispatch'
+    needs: [test]
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/317766274600/locations/global/workloadIdentityPools/github-pool/providers/github
+          service_account: github-deploy@get-ground-448ca.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Refuse if prod API does not exist
+        run: |
+          if ! gcloud run services describe getgrounded-prod-api \
+            --project=get-ground-448ca \
+            --region=us-central1 >/dev/null 2>&1; then
+            echo "getgrounded-prod-api does not exist. Do not create it from CI."
+            exit 1
+          fi
+      - name: Deploy image only
+        run: |
+          gcloud run deploy getgrounded-prod-api \
+            --source=api \
+            --project=get-ground-448ca \
+            --region=us-central1 \
+            --min-instances=0 \
+            --max-instances=2 \
+            --memory=512Mi \
+            --cpu=1 \
+            --quiet

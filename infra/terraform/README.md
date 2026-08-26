@@ -1,31 +1,23 @@
 # Terraform
 
-Hybrid IaC. This folder owns **cloud objects** only.
+One `environments/dev` root. State: `getgrounded-tfstate/dev/terraform.tfstate`.
 
-| Environment | Folder | Names |
-|---|---|---|
-| dev | `environments/dev` | `getgrounded-dev-*` |
-| prod | `environments/prod` | `getgrounded-prod-*` |
+The state bucket is in Terraform with `prevent_destroy`. Prod uses the same bucket, different key — do not declare the bucket in `prod`.
 
-Each environment has its own state file. `cd` into the environment you mean. That makes it hard to apply prod by accident.
+| Module / resource | Live objects |
+|---|---|
+| `cloudflare_r2_bucket.tfstate` | `getgrounded-tfstate` |
+| `r2` | `getgrounded-dev-audio` |
+| `dns` | CNAME `dev.get-grounded.app` |
+| `sql` | `getgrounded-dev` + db `getgrounded` |
+| `secret` | secret + version 1 (`secret_data` ignored in `.tf`) |
+| `cloud_run` | API, public invoker, domain mapping |
+| `wif` | GitHub OIDC + `github-deploy` |
+| `budget_kill` | $50 GetGrounded budget + kill path, and the $100 account alert |
+| `firebase` | Firebase on `get-ground-448ca` |
 
 ```bash
+source ~/.config/cloudflare/env
 cd infra/terraform/environments/dev
-terraform init
 terraform plan
-# terraform apply   # only when we explicitly decide to create resources
 ```
-
-## What will live here later
-
-- `modules/r2` — private audio bucket
-- `modules/render_api` — API web service + Postgres
-
-## What does not live here
-
-- Worker / Workflow source → `infra/cloudflare` + Wrangler
-- Firebase Auth / Analytics / FCM → `infra/firebase` + Firebase CLI
-- ElevenLabs agents → `infra/elevenlabs` + ElevenLabs CLI
-- Secrets → host secret stores, never `.tf` files
-
-No resources are created yet. Modules are empty on purpose.
