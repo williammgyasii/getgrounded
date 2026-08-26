@@ -45,10 +45,9 @@ public sealed class VertexSpeechToText(
             {
                 autoDecodingConfig = new { },
                 languageCodes = new[] { "en-US" },
-                model = "chirp_3",
+                model = "latest_short",
                 features = new { enableAutomaticPunctuation = true }
             },
-            configMask = "*",
             content = Convert.ToBase64String(clip.Bytes)
         });
 
@@ -65,7 +64,13 @@ public sealed class VertexSpeechToText(
 
         if (!response.IsSuccessStatusCode)
         {
-            _log.LogWarning("speech http {Status}", (int)response.StatusCode);
+            var detail = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (detail.Length > 240)
+            {
+                detail = detail[..240];
+            }
+
+            _log.LogWarning("speech http {Status} {Detail}", (int)response.StatusCode, detail);
             throw new SpeechUnavailableException();
         }
 
