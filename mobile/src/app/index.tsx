@@ -1,98 +1,128 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { Link } from 'expo-router';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import { AuthActionsIn, AuthTitleIn } from '@/components/auth/auth-motion';
+import { PillButton } from '@/components/auth/pill-button';
+import { SocialButton } from '@/components/auth/social-button';
+import { GoogleMark } from '@/components/auth/social-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+export default function WelcomeScreen() {
+  const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
-export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
+    <ThemedView style={styles.screen}>
+      <Image
+        source={require('@/assets/images/auth/login-illustration.png')}
+        style={styles.wash}
+        contentFit="cover"
+        contentPosition={{ top: '78%', left: '55%' }}
+      />
+      <View
+        style={[
+          styles.content,
+          {
+            paddingTop: insets.top + Spacing.six,
+            paddingBottom: Math.max(insets.bottom, Spacing.four),
+          },
+        ]}>
+        <AuthTitleIn>
+          <ThemedText style={[styles.mark, { color: theme.accent }]}>GetGrounded</ThemedText>
+          <ThemedText style={styles.title}>
+            Stop tracking.{'\n'}Start talking.
           </ThemedText>
-        </ThemedView>
+          <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+            Plan the morning out loud. Reflect at night. We keep the bookkeeping.
+          </ThemedText>
+        </AuthTitleIn>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+        <AuthActionsIn style={styles.actions}>
+          <Link href="/sign-up" asChild>
+            <PillButton label="Create account" />
+          </Link>
+          <Link href="/sign-in" asChild>
+            <PillButton label="Log in" variant="secondary" />
+          </Link>
+          <SocialButton
+            label="Continue with Google"
+            icon={<GoogleMark />}
+            onPress={() => Alert.alert('Google is next', 'Email is the first path.')}
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        </AuthActionsIn>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
+        <View style={styles.footer}>
+          <Pressable onPress={() => Alert.alert('Privacy Policy', 'Coming with the legal pages.')}>
+            <ThemedText themeColor="textSecondary" style={styles.legal}>
+              Privacy
+            </ThemedText>
+          </Pressable>
+          <ThemedText themeColor="textSecondary" style={styles.legal}>
+            ·
+          </ThemedText>
+          <Pressable onPress={() => Alert.alert('Terms of Service', 'Coming with the legal pages.')}>
+            <ThemedText themeColor="textSecondary" style={styles.legal}>
+              Terms
+            </ThemedText>
+          </Pressable>
+        </View>
+      </View>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
-  safeArea: {
+  wash: {
+    ...StyleSheet.absoluteFill,
+    opacity: 0.18,
+  },
+  content: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
+    width: '100%',
     maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
+    alignSelf: 'center',
     paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  },
+  mark: {
+    fontFamily: FontFamily.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    marginBottom: Spacing.four,
   },
   title: {
-    textAlign: 'center',
+    fontFamily: FontFamily.semibold,
+    fontSize: 34,
+    lineHeight: 42,
+    letterSpacing: -0.6,
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: Spacing.three,
+    maxWidth: 320,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  actions: {
+    gap: Spacing.two,
+    marginTop: 'auto',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingTop: Spacing.four,
+  },
+  legal: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

@@ -7,21 +7,49 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/** Stone floor — not kit peach, not blank white. */
+export const Surface = '#F3EFE8';
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#1C1915',
+    background: Surface,
+    backgroundElement: '#E8E2D6',
+    backgroundSelected: '#DDD6C8',
+    textSecondary: '#6B6458',
+    primary: '#1C1915',
+    primarySoft: '#DCE6DF',
+    primaryOn: '#F7F3EC',
+    border: '#D6CFC3',
+    inputBackground: '#FAF7F1',
+    accent: '#2F4A3C',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#1C1915',
+    background: Surface,
+    backgroundElement: '#E8E2D6',
+    backgroundSelected: '#DDD6C8',
+    textSecondary: '#6B6458',
+    primary: '#1C1915',
+    primarySoft: '#DCE6DF',
+    primaryOn: '#F7F3EC',
+    border: '#D6CFC3',
+    inputBackground: '#FAF7F1',
+    accent: '#2F4A3C',
   },
+} as const;
+
+export const Radius = {
+  field: 12,
+  button: 12,
+  card: 12,
+  pill: 12,
+} as const;
+
+export const FontFamily = {
+  medium: 'Poppins_500Medium',
+  semibold: 'Poppins_600SemiBold',
+  bold: 'Poppins_700Bold',
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;

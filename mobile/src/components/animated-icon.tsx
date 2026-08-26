@@ -1,16 +1,37 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { Surface } from '@/constants/theme';
+
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
-const DURATION = 600;
+const HOLD_MS = 2000;
+const DURATION = 700;
 
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    let fadeTimer: ReturnType<typeof setTimeout>;
+
+    SplashScreen.hideAsync().finally(() => {
+      fadeTimer = setTimeout(() => {
+        if (!cancelled) {
+          setAnimate(true);
+        }
+      }, HOLD_MS);
+    });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fadeTimer);
+    };
+  }, []);
 
   if (!visible) return null;
 
@@ -33,7 +54,14 @@ export function AnimatedSplashOverlay() {
     },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const image = (
+    <Image
+      style={styles.splashArt}
+      source={require('@/assets/images/auth/login-illustration.png')}
+      contentFit="cover"
+      contentPosition={{ top: '72%', left: '55%' }}
+    />
+  );
 
   return animate ? (
     <Animated.View
@@ -47,15 +75,7 @@ export function AnimatedSplashOverlay() {
       {image}
     </Animated.View>
   ) : (
-    <View
-      onLayout={() => {
-        SplashScreen.hideAsync().finally(() => {
-          setAnimate(true);
-        });
-      }}
-      style={styles.splashOverlay}>
-      {image}
-    </View>
+    <View style={styles.splashOverlay}>{image}</View>
   );
 }
 
@@ -138,9 +158,12 @@ const styles = StyleSheet.create({
     height: 128,
     position: 'absolute',
   },
+  splashArt: {
+    ...StyleSheet.absoluteFill,
+  },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: Surface,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
