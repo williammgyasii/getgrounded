@@ -27,9 +27,10 @@ module "secret" {
 }
 
 module "cloud_run" {
-  source                 = "../../modules/cloud_run"
-  sql_connection_name    = module.sql.connection_name
-  database_url_secret_id = module.secret.database_url_secret_id
+  source                       = "../../modules/cloud_run"
+  sql_connection_name          = module.sql.connection_name
+  database_url_secret_id       = module.secret.database_url_secret_id
+  elevenlabs_api_key_secret_id = module.secret.elevenlabs_api_key_secret_id
 }
 
 module "wif" {

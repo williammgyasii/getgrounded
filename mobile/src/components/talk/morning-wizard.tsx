@@ -1,6 +1,16 @@
 import { type Href, router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SymbolView } from 'expo-symbols';
 import {
   AudioModule,
   setAudioModeAsync,
@@ -9,10 +19,11 @@ import {
 } from 'expo-audio';
 
 import { PillButton } from '@/components/auth/pill-button';
+import { BusyLock } from '@/components/talk/busy-lock';
 import { PlanMic } from '@/components/talk/plan-mic';
 import { useLiveWords } from '@/components/talk/use-live-words';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Radius, Spacing } from '@/constants/theme';
+import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone } from '@/lib/api';
 import {
@@ -24,11 +35,25 @@ import {
 
 const MaxMs = 60_000;
 
-type Step = 'record' | 'thinking' | 'check';
+type Step = 'record' | 'check';
 type Line = { key: string; title: string };
+
+function joinWords(current: string, next: string) {
+  const left = current.trim();
+  const right = next.trim();
+  if (!right) {
+    return current;
+  }
+  if (!left) {
+    return right;
+  }
+
+  return `${left} ${right}`;
+}
 
 export function MorningWizard() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const timezone = deviceTimezone();
   const recorder = useAudioRecorder({
     extension: '.m4a',
@@ -52,14 +77,18 @@ export function MorningWizard() {
   const live = useLiveWords(rec.isRecording);
 
   const [step, setStep] = useState<Step>('record');
-  const [note, setNote] = useState('Tap the forest mic. Speak the plan.');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState('Tap the mic and speak.');
   const [words, setWords] = useState('');
+  const [canType, setCanType] = useState(false);
+  const [micBlocked, setMicBlocked] = useState(false);
   const [dayTitle, setDayTitle] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
+  const keptWords = useRef('');
 
   useEffect(() => {
     if (live.words.length > 0) {
-      setWords(live.words);
+      setWords(joinWords(keptWords.current, live.words));
     }
   }, [live.words]);
 
@@ -67,7 +96,9 @@ export function MorningWizard() {
     void (async () => {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
       if (!permission.granted) {
-        setNote('Mic is blocked. Type the day in the words box.');
+        setMicBlocked(true);
+        setCanType(true);
+        setNote('Mic is blocked. Type the day.');
         return;
       }
 
@@ -85,24 +116,31 @@ export function MorningWizard() {
   }, [rec.durationMillis, rec.isRecording]);
 
   async function start() {
-    setNote('Listening. Tap the mic when you are done.');
+    keptWords.current = words;
+    setNote('Listening. Check sends it. X tosses it.');
     await recorder.prepareToRecordAsync();
     recorder.record();
+  }
+
+  async function discard() {
+    await recorder.stop();
+    setNote('Tossed. Tap the mic and speak.');
   }
 
   async function stopAndHear() {
     await recorder.stop();
     const uri = recorder.uri;
     if (!uri) {
-      setNote('Nothing was recorded. Tap the forest mic and speak.');
+      setNote('Nothing was recorded. Tap the mic and speak.');
       return;
     }
 
-    setNote('Hearing you.');
+    setCanType(true);
+    setBusy('Sending your voice…');
     try {
       const heard = await hearClip({ uri }).unwrap();
       if (heard.transcript.trim().length > 0) {
-        setWords(heard.transcript);
+        setWords((current) => joinWords(current, heard.transcript));
       }
       setNote('Fix anything we misheard, then continue.');
     } catch (error) {
@@ -111,7 +149,7 @@ export function MorningWizard() {
           ? String((error as { status: unknown }).status)
           : 'failed';
       if (status === '422') {
-        setNote('We did not catch any words. Speak a bit longer, then tap again — or type them.');
+        setNote('We got the clip, but no words came back. Try again closer to the phone — or type them.');
         return;
       }
 
@@ -122,6 +160,8 @@ export function MorningWizard() {
       setNote(
         `Could not hear that clip (${status}${detail ? ` ${detail}` : ''} → ${apiUrl}). Keep your words, or type them.`,
       );
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -132,8 +172,7 @@ export function MorningWizard() {
       return;
     }
 
-    setStep('thinking');
-    setNote('Finding the plan in your words.');
+    setBusy('Finding the plan in your words…');
     try {
       const draft = await extractMorning({ transcript }).unwrap();
       setDayTitle(draft.title ?? '');
@@ -150,7 +189,10 @@ export function MorningWizard() {
       setNote('Edit the plan, name the day, then save.');
     } catch {
       setStep('record');
+      setCanType(true);
       setNote('Could not extract a plan. Edit the words and try again.');
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -177,48 +219,45 @@ export function MorningWizard() {
     }
   }
 
-  if (step === 'thinking') {
-    return (
-      <View style={styles.wrap}>
-        <ThemedText style={styles.stepTitle}>Thinking</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {note}
-        </ThemedText>
-      </View>
-    );
-  }
+  const showBack = step !== 'record';
+  const header = (
+    <View style={styles.header}>
+      {showBack ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to Today"
+          hitSlop={12}
+          onPress={() => router.navigate('/today' as Href)}
+          style={styles.back}>
+          <SymbolView
+            name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }}
+            size={20}
+            tintColor={theme.text}
+          />
+        </Pressable>
+      ) : null}
+      <ThemedText style={styles.screenTitle}>
+        {step === 'check' ? 'Check the plan' : 'Plan your day'}
+      </ThemedText>
+    </View>
+  );
 
   if (step === 'check') {
     return (
-      <View style={styles.wrap}>
-        <ThemedText style={styles.stepTitle}>Check the plan</ThemedText>
-        <TextInput
-          value={dayTitle}
-          onChangeText={setDayTitle}
-          placeholder="Name this day"
-          placeholderTextColor={theme.textSecondary}
-          style={[
-            styles.titleInput,
-            {
-              backgroundColor: theme.inputBackground,
-              borderColor: theme.border,
-              color: theme.text,
-            },
-          ]}
-        />
-        {lines.map((line) => (
+      <View style={[styles.page, { paddingTop: insets.top + Spacing.three }]}>
+        <BusyLock message={busy} />
+        {header}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.checkBody}
+          showsVerticalScrollIndicator={false}>
           <TextInput
-            key={line.key}
-            value={line.title}
-            onChangeText={(title) =>
-              setLines((current) =>
-                current.map((item) => (item.key === line.key ? { ...item, title } : item)),
-              )
-            }
-            placeholder="A commitment"
+            value={dayTitle}
+            onChangeText={setDayTitle}
+            placeholder="Name this day"
             placeholderTextColor={theme.textSecondary}
             style={[
-              styles.line,
+              styles.titleInput,
               {
                 backgroundColor: theme.inputBackground,
                 borderColor: theme.border,
@@ -226,29 +265,59 @@ export function MorningWizard() {
               },
             ]}
           />
-        ))}
-        <Pressable
-          onPress={() => setLines((current) => [...current, { key: String(Date.now()), title: '' }])}
-          accessibilityRole="button">
-          <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
-            Add another
+          {lines.map((line) => (
+            <TextInput
+              key={line.key}
+              value={line.title}
+              onChangeText={(title) =>
+                setLines((current) =>
+                  current.map((item) => (item.key === line.key ? { ...item, title } : item)),
+                )
+              }
+              placeholder="A commitment"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.line,
+                {
+                  backgroundColor: theme.inputBackground,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
+            />
+          ))}
+          <Pressable
+            onPress={() => setLines((current) => [...current, { key: String(Date.now()), title: '' }])}
+            accessibilityRole="button">
+            <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
+              Add another
+            </ThemedText>
+          </Pressable>
+          <ThemedText type="small" themeColor="textSecondary">
+            {note}
           </ThemedText>
-        </Pressable>
-        <ThemedText type="small" themeColor="textSecondary">
-          {note}
-        </ThemedText>
-        <PillButton label="Save" loading={saveState.isLoading} onPress={() => void save()} />
-        <Pressable onPress={() => setStep('record')} accessibilityRole="button">
-          <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
-            Edit your words
-          </ThemedText>
-        </Pressable>
+          <PillButton label="Save" loading={saveState.isLoading} onPress={() => void save()} />
+          <Pressable onPress={() => setStep('record')} accessibilityRole="button">
+            <ThemedText type="small" themeColor="textSecondary" style={styles.toggle}>
+              Edit your words
+            </ThemedText>
+          </Pressable>
+        </ScrollView>
       </View>
     );
   }
 
+  const allowType = canType || micBlocked;
+
   return (
-    <View style={styles.wrap}>
+    <KeyboardAvoidingView
+      style={[styles.page, { paddingTop: insets.top + Spacing.three }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <BusyLock message={busy} />
+      {header}
+      <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+        Speak it. Then we book it.
+      </ThemedText>
       <View
         style={[
           styles.words,
@@ -257,66 +326,95 @@ export function MorningWizard() {
             borderColor: theme.border,
           },
         ]}>
-        <ThemedText type="smallBold">Your words</ThemedText>
-        <TextInput
-          value={words}
-          onChangeText={setWords}
-          multiline
-          placeholder={
-            rec.isRecording
+        {allowType ? (
+          <TextInput
+            value={words}
+            onChangeText={setWords}
+            multiline
+            placeholder="Fix anything we misheard, or type here."
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.wordsInput, { color: theme.text }]}
+          />
+        ) : (
+          <ThemedText themeColor="textSecondary" style={styles.wordsInput}>
+            {rec.isRecording
               ? live.liveAvailable
-                ? 'Listening…'
+                ? live.words || 'Listening…'
                 : 'Listening… words appear when you stop.'
-              : 'Tap the mic and speak. Or type here.'
-          }
-          placeholderTextColor={theme.textSecondary}
-          style={[styles.wordsInput, { color: theme.text }]}
-        />
+              : 'Tap the mic and speak.'}
+          </ThemedText>
+        )}
       </View>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
+        {rec.isRecording ? 'Listening. Check sends it. X tosses it.' : note}
+      </ThemedText>
       <PlanMic
         recording={rec.isRecording}
+        durationMillis={rec.durationMillis}
         metering={rec.metering}
-        onPress={() => {
-          void (rec.isRecording ? stopAndHear() : start());
-        }}
+        onStart={() => void start()}
+        onSend={() => void stopAndHear()}
+        onDiscard={() => void discard()}
       />
-      <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-        {note}
-      </ThemedText>
-      <PillButton label="Continue" disabled={words.trim().length === 0} onPress={() => void extract()} />
-    </View>
+      <PillButton
+        label="Continue"
+        disabled={words.trim().length === 0}
+        onPress={() => void extract()}
+      />
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
+  page: {
+    flex: 1,
     width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.three,
     gap: Spacing.three,
-    alignItems: 'center',
   },
-  stepTitle: {
-    alignSelf: 'stretch',
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  back: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+  },
+  screenTitle: {
     fontFamily: FontFamily.semibold,
     fontSize: 22,
     lineHeight: 28,
+    flex: 1,
+  },
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 24,
   },
   words: {
+    flex: 1,
     width: '100%',
-    minHeight: 140,
     borderWidth: 1,
     borderRadius: Radius.card,
     padding: Spacing.three,
-    gap: Spacing.two,
   },
   wordsInput: {
-    minHeight: 88,
+    flex: 1,
     fontFamily: FontFamily.medium,
     fontSize: 18,
     lineHeight: 26,
     textAlignVertical: 'top',
   },
   note: {
-    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
+  checkBody: {
+    gap: Spacing.three,
+    paddingBottom: Spacing.four,
   },
   toggle: {
     textDecorationLine: 'underline',

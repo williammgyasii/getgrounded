@@ -17,13 +17,14 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         services.AddHttpClient("google");
+        services.AddHttpClient("elevenlabs");
         services.AddSingleton<ITokenVerifier, FirebaseTokenVerifier>();
         services.AddSingleton<IUserStore, PostgresUserStore>();
         services.AddSingleton<IBookStore, PostgresBookStore>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IDatabasePing, NpgsqlDatabasePing>();
         services.AddSingleton<IAudioStore, MemoryAudioStore>();
-        services.AddSingleton<ISpeechToText, VertexSpeechToText>();
+        services.AddSingleton<ISpeechToText, ElevenLabsSpeechToText>();
         services.AddSingleton<ILanguageModel, VertexLanguageModel>();
         return services;
     }

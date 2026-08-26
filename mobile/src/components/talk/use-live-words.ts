@@ -1,22 +1,23 @@
 import { useEffect, useState } from 'react';
 import { NativeModules } from 'react-native';
 
-type SpeechStart = {
+type SpeechModule = {
   requestPermissionsAsync: () => Promise<{ granted: boolean }>;
   start: (options: {
     lang: string;
     interimResults: boolean;
     continuous: boolean;
   }) => Promise<void> | void;
-  stop: () => Promise<void> | void;
+  stop?: () => Promise<void> | void;
+  abort?: () => Promise<void> | void;
   addListener?: (
     event: string,
     listener: (event: { results?: { transcript?: string }[] }) => void,
   ) => { remove: () => void };
 };
 
-function speechNative(): SpeechStart | null {
-  const native = NativeModules.ExpoSpeechRecognitionModule as SpeechStart | undefined;
+function speechNative(): SpeechModule | null {
+  const native = NativeModules.ExpoSpeechRecognitionModule as SpeechModule | undefined;
   return native ?? null;
 }
 
@@ -26,6 +27,7 @@ export function useLiveWords(active: boolean) {
 
   useEffect(() => {
     if (!active) {
+      setWords('');
       return;
     }
 
@@ -46,22 +48,27 @@ export function useLiveWords(active: boolean) {
     });
 
     void (async () => {
-      const permission = await speech.requestPermissionsAsync();
-      if (!permission.granted || stopped) {
-        return;
-      }
+      try {
+        const permission = await speech.requestPermissionsAsync();
+        if (!permission.granted || stopped) {
+          return;
+        }
 
-      await speech.start({
-        lang: 'en-US',
-        interimResults: true,
-        continuous: true,
-      });
+        await speech.start({
+          lang: 'en-US',
+          interimResults: true,
+          continuous: true,
+        });
+      } catch {
+        // Current APK does not include the native speech module.
+      }
     })();
 
     return () => {
       stopped = true;
       sub?.remove();
-      void speech.stop();
+      void speech.abort?.();
+      void speech.stop?.();
     };
   }, [active]);
 

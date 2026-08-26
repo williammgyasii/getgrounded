@@ -65,6 +65,16 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
+        name = "ELEVENLABS_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.elevenlabs_api_key_secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = "get-ground-448ca"
       }

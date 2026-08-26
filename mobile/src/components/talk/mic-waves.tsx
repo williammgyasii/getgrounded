@@ -9,8 +9,19 @@ import Animated, {
 
 import { useTheme } from '@/hooks/use-theme';
 
-export function MicWaves({ metering, active }: { metering?: number; active: boolean }) {
+export function MicWaves({
+  metering,
+  active,
+  compact = false,
+  color,
+}: {
+  metering?: number;
+  active: boolean;
+  compact?: boolean;
+  color?: string;
+}) {
   const theme = useTheme();
+  const barColor = color ?? theme.primaryOn;
   const a = useSharedValue(0.2);
   const b = useSharedValue(0.2);
   const c = useSharedValue(0.2);
@@ -33,13 +44,16 @@ export function MicWaves({ metering, active }: { metering?: number; active: bool
     });
   }, [a, b, c, d, e, active, metering]);
 
+  const max = compact ? 18 : 36;
+  const min = compact ? 8 : 12;
+
   return (
-    <View style={styles.row}>
-      <WaveBar level={a} color={theme.primary} />
-      <WaveBar level={b} color={theme.primary} />
-      <WaveBar level={c} color={theme.primary} />
-      <WaveBar level={d} color={theme.primary} />
-      <WaveBar level={e} color={theme.primary} />
+    <View style={[styles.row, compact ? styles.compactRow : null]}>
+      <WaveBar level={a} color={barColor} min={min} max={max} />
+      <WaveBar level={b} color={barColor} min={min} max={max} />
+      <WaveBar level={c} color={barColor} min={min} max={max} />
+      <WaveBar level={d} color={barColor} min={min} max={max} />
+      <WaveBar level={e} color={barColor} min={min} max={max} />
     </View>
   );
 }
@@ -47,12 +61,16 @@ export function MicWaves({ metering, active }: { metering?: number; active: bool
 function WaveBar({
   level,
   color,
+  min,
+  max,
 }: {
   level: SharedValue<number>;
   color: string;
+  min: number;
+  max: number;
 }) {
   const style = useAnimatedStyle(() => ({
-    height: 12 + level.value * 36,
+    height: min + level.value * max,
     backgroundColor: color,
   }));
 
@@ -67,8 +85,13 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 52,
   },
+  compactRow: {
+    gap: 4,
+    height: 28,
+    alignItems: 'center',
+  },
   bar: {
-    width: 8,
-    borderRadius: 4,
+    width: 4,
+    borderRadius: 2,
   },
 });

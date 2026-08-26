@@ -11,7 +11,8 @@
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "app.getgrounded.dev",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "GetGrounded uses the microphone so you can talk your morning and evening."
+        "NSMicrophoneUsageDescription": "GetGrounded uses the microphone so you can talk your morning and evening.",
+        "NSSpeechRecognitionUsageDescription": "GetGrounded shows your words as you speak, then Vertex fixes the transcript."
       }
     },
     "android": {
@@ -49,7 +50,14 @@
         }
       ],
       "expo-font",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "GetGrounded uses the microphone so you can talk your morning and evening.",
+          "speechRecognitionPermission": "GetGrounded shows your words as you speak, then Vertex fixes the transcript."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
