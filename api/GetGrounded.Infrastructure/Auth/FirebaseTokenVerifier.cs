@@ -1,14 +1,11 @@
+using GetGrounded.Application.Auth;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 
-namespace GetGrounded.Api;
-
-public interface ITokenVerifier
-{
-    Task<string?> VerifyUserIdAsync(string token, CancellationToken cancellationToken = default);
-}
+namespace GetGrounded.Infrastructure.Auth;
 
 public sealed class FirebaseTokenVerifier : ITokenVerifier
 {

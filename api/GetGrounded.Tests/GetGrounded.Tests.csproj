@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GetGrounded.Domain\GetGrounded.Domain.csproj" />
+    <ProjectReference Include="..\GetGrounded.Application\GetGrounded.Application.csproj" />
     <ProjectReference Include="..\GetGrounded.Api\GetGrounded.Api.csproj" />
   </ItemGroup>
 

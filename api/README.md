@@ -1,9 +1,11 @@
 # GetGrounded API
 
 ```text
-GetGrounded.Domain   rules and entities — no HTTP, no EF, no AI SDKs
-GetGrounded.Api      HTTP + adapters
-GetGrounded.Tests    failing tests first
+GetGrounded.Api             Controllers + Program (HTTP only)
+GetGrounded.Application     services (AuthService, HealthService)
+GetGrounded.Infrastructure  Firebase + Postgres
+GetGrounded.Domain          rules — no HTTP, no SQL
+GetGrounded.Tests           failing tests first
 ```
 
 ```bash

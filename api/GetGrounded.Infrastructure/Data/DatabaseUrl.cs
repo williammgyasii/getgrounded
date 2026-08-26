@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace GetGrounded.Api;
+namespace GetGrounded.Infrastructure.Data;
 
 internal static class DatabaseUrl
 {

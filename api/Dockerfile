@@ -1,6 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY GetGrounded.Domain/ GetGrounded.Domain/
+COPY GetGrounded.Application/ GetGrounded.Application/
+COPY GetGrounded.Infrastructure/ GetGrounded.Infrastructure/
 COPY GetGrounded.Api/ GetGrounded.Api/
 COPY Directory.Build.props Directory.Build.props
 RUN dotnet publish GetGrounded.Api/GetGrounded.Api.csproj -c Release -o /app /p:UseAppHost=false

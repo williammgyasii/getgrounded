@@ -1,18 +1,10 @@
 using System.Diagnostics;
+using GetGrounded.Application.Health;
+using GetGrounded.Infrastructure.Data;
+using Microsoft.Extensions.Configuration;
 using Npgsql;
 
-namespace GetGrounded.Api;
-
-public interface IDatabasePing
-{
-    Task<DatabasePingResult> PingAsync(CancellationToken cancellationToken = default);
-}
-
-public sealed record DatabasePingResult(
-    string Status,
-    string? Name,
-    string? ServerVersion,
-    double? LatencyMs);
+namespace GetGrounded.Infrastructure.Health;
 
 public sealed class NpgsqlDatabasePing(IConfiguration configuration) : IDatabasePing
 {

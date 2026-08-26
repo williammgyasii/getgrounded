@@ -1,11 +1,9 @@
+using GetGrounded.Application.Auth;
+using GetGrounded.Infrastructure.Data;
+using Microsoft.Extensions.Configuration;
 using Npgsql;
 
-namespace GetGrounded.Api;
-
-public interface IUserStore
-{
-    Task EnsureAsync(string userId, CancellationToken cancellationToken = default);
-}
+namespace GetGrounded.Infrastructure.Auth;
 
 public sealed class PostgresUserStore(IConfiguration configuration) : IUserStore
 {
