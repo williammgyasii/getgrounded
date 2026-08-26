@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: getgrounded
+      POSTGRES_PASSWORD: getgrounded
+      POSTGRES_DB: getgrounded
+    ports:
+      - "5432:5432"
+    volumes:
+      - getgrounded_pg:/var/lib/postgresql/data
+
+volumes:
+  getgrounded_pg:

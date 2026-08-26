@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import {
   AudioModule,
-  RecordingPresets,
   setAudioModeAsync,
   useAudioRecorder,
   useAudioRecorderState,
@@ -17,6 +16,7 @@ import { FontFamily, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone } from '@/lib/api';
 import {
+  apiUrl,
   useExtractMorningMutation,
   useHearClipMutation,
   usePlanMorningMutation,
@@ -31,8 +31,19 @@ export function MorningWizard() {
   const theme = useTheme();
   const timezone = deviceTimezone();
   const recorder = useAudioRecorder({
-    ...RecordingPresets.HIGH_QUALITY,
+    extension: '.m4a',
+    sampleRate: 16_000,
+    numberOfChannels: 1,
+    bitRate: 64_000,
     isMeteringEnabled: true,
+    android: {
+      outputFormat: 'mpeg4',
+      audioEncoder: 'aac',
+    },
+    ios: {
+      outputFormat: 'aac ',
+      audioQuality: 0x60,
+    },
   });
   const rec = useAudioRecorderState(recorder, 80);
   const [hearClip] = useHearClipMutation();
@@ -99,7 +110,18 @@ export function MorningWizard() {
         error && typeof error === 'object' && 'status' in error
           ? String((error as { status: unknown }).status)
           : 'failed';
-      setNote(`Could not hear that clip (${status}). Keep your words, or type them.`);
+      if (status === '422') {
+        setNote('We did not catch any words. Speak a bit longer, then tap again — or type them.');
+        return;
+      }
+
+      const detail =
+        error && typeof error === 'object' && 'error' in error
+          ? String((error as { error: unknown }).error)
+          : '';
+      setNote(
+        `Could not hear that clip (${status}${detail ? ` ${detail}` : ''} → ${apiUrl}). Keep your words, or type them.`,
+      );
     }
   }
 

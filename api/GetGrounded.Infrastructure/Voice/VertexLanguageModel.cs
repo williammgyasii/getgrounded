@@ -2,11 +2,18 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using GetGrounded.Application.Voice;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GetGrounded.Infrastructure.Voice;
 
-public sealed class VertexLanguageModel(IHttpClientFactory http, IConfiguration config) : ILanguageModel
+public sealed class VertexLanguageModel(
+    IHttpClientFactory http,
+    IConfiguration config,
+    ILogger<VertexLanguageModel>? log = null) : ILanguageModel
 {
+    private readonly ILogger _log = log ?? NullLogger<VertexLanguageModel>.Instance;
+
     private static readonly JsonSerializerOptions Json = new()
     {
         PropertyNameCaseInsensitive = true
@@ -47,13 +54,15 @@ public sealed class VertexLanguageModel(IHttpClientFactory http, IConfiguration 
         {
             response = await http.CreateClient("google").SendAsync(request, cancellationToken);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _log.LogWarning(ex, "model transport failed");
             throw new ModelUnavailableException();
         }
 
-        if ((int)response.StatusCode >= 500 || !response.IsSuccessStatusCode)
+        if (!response.IsSuccessStatusCode)
         {
+            _log.LogWarning("model http {Status}", (int)response.StatusCode);
             throw new ModelUnavailableException();
         }
 

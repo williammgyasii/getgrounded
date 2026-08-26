@@ -2,11 +2,18 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using GetGrounded.Application.Voice;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GetGrounded.Infrastructure.Voice;
 
-public sealed class VertexSpeechToText(IHttpClientFactory http, IConfiguration config) : ISpeechToText
+public sealed class VertexSpeechToText(
+    IHttpClientFactory http,
+    IConfiguration config,
+    ILogger<VertexSpeechToText>? log = null) : ISpeechToText
 {
+    private readonly ILogger _log = log ?? NullLogger<VertexSpeechToText>.Instance;
+
     private static readonly JsonSerializerOptions Json = new()
     {
         PropertyNameCaseInsensitive = true
@@ -26,8 +33,9 @@ public sealed class VertexSpeechToText(IHttpClientFactory http, IConfiguration c
                 "Bearer",
                 await GoogleAccess.BearerAsync(cancellationToken));
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _log.LogWarning(ex, "speech auth failed");
             throw new SpeechUnavailableException();
         }
 
@@ -37,9 +45,10 @@ public sealed class VertexSpeechToText(IHttpClientFactory http, IConfiguration c
             {
                 autoDecodingConfig = new { },
                 languageCodes = new[] { "en-US" },
-                model = "latest_short",
+                model = "chirp_3",
                 features = new { enableAutomaticPunctuation = true }
             },
+            configMask = "*",
             content = Convert.ToBase64String(clip.Bytes)
         });
 
@@ -48,25 +57,28 @@ public sealed class VertexSpeechToText(IHttpClientFactory http, IConfiguration c
         {
             response = await http.CreateClient("google").SendAsync(request, cancellationToken);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            throw new SpeechUnavailableException();
-        }
-
-        if ((int)response.StatusCode >= 500)
-        {
+            _log.LogWarning(ex, "speech transport failed");
             throw new SpeechUnavailableException();
         }
 
         if (!response.IsSuccessStatusCode)
         {
+            _log.LogWarning("speech http {Status}", (int)response.StatusCode);
             throw new SpeechUnavailableException();
         }
 
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         var parsed = JsonSerializer.Deserialize<RecognizeResponse>(body, Json);
-        var alt = parsed?.Results?.FirstOrDefault()?.Alternatives?.FirstOrDefault();
-        return new HearResult(alt?.Transcript ?? "", alt?.Confidence);
+        var text = string.Join(
+            " ",
+            parsed?.Results?
+                .SelectMany(result => result.Alternatives ?? [])
+                .Select(alt => alt.Transcript)
+                .Where(part => !string.IsNullOrWhiteSpace(part)) ?? []);
+        var confidence = parsed?.Results?.FirstOrDefault()?.Alternatives?.FirstOrDefault()?.Confidence;
+        return new HearResult(text.Trim(), confidence);
     }
 
     private sealed record RecognizeResponse(IReadOnlyList<RecognizeResult>? Results);

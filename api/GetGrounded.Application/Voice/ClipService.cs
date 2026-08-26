@@ -1,4 +1,6 @@
 using GetGrounded.Application.Book;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GetGrounded.Application.Voice;
 
@@ -6,9 +8,11 @@ public sealed class ClipService(
     IAudioStore audio,
     ISpeechToText speech,
     IDayInterpreter interpreter,
-    BookService book)
+    BookService book,
+    ILogger<ClipService>? log = null)
 {
     public const int MaxBytes = 2 * 1024 * 1024;
+    private readonly ILogger _log = log ?? NullLogger<ClipService>.Instance;
 
     public async Task<HearResult> HearAsync(
         Guid userId,
@@ -16,13 +20,16 @@ public sealed class ClipService(
         CancellationToken cancellationToken)
     {
         RequireClip(clip);
+        _log.LogInformation("hear started user={UserId} bytes={Bytes} type={Type}", userId, clip.Bytes.Length, clip.ContentType);
         await audio.PutAsync(userId, "MORNING_PLAN", clip, cancellationToken);
         var heard = await speech.HearAsync(clip, cancellationToken);
         if (string.IsNullOrWhiteSpace(heard.Transcript))
         {
+            _log.LogWarning("hear empty user={UserId} bytes={Bytes}", userId, clip.Bytes.Length);
             throw new EmptySpeechException();
         }
 
+        _log.LogInformation("hear ok user={UserId} chars={Chars}", userId, heard.Transcript.Length);
         return heard;
     }
 
@@ -33,7 +40,10 @@ public sealed class ClipService(
             throw new ArgumentException("Transcript is required.", nameof(transcript));
         }
 
-        return await interpreter.ReadMorningAsync(transcript, cancellationToken);
+        _log.LogInformation("extract started chars={Chars}", transcript.Length);
+        var draft = await interpreter.ReadMorningAsync(transcript, cancellationToken);
+        _log.LogInformation("extract ok title={HasTitle} items={Items}", draft.Title is not null, draft.Commitments.Count);
+        return draft;
     }
 
     public async Task<DeskRecord> CaptureAsync(

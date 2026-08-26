@@ -54,16 +54,37 @@ bash scripts/check-tooling.sh
 
 ## Run locally
 
-```bash
-cd mobile
-npm install
-npx expo start
+Do **not** deploy to Cloud Run to try a mic tap. Point Expo at this Mac. Deploy only when a slice is ready.
+
+```text
+Phone  →  http://<mac-lan-ip>:5217  →  dotnet run
+                                    →  local Docker Postgres
+                                    →  Vertex via gcloud ADC
+Firebase Auth stays the live project (same login).
 ```
 
 ```bash
+# Terminal 1 — book
 cd api
-dotnet run --project GetGrounded.Api
+docker compose up -d
+dotnet run --project GetGrounded.Api --urls http://0.0.0.0:5217
 ```
+
+```bash
+# Terminal 2 — phone
+cd mobile
+# .env: EXPO_PUBLIC_API_URL=http://192.168.1.157:5217
+npx expo start
+```
+
+Same Wi-Fi. Restart Metro after changing `EXPO_PUBLIC_API_URL`. If the phone cannot reach the LAN, USB:
+
+```bash
+adb reverse tcp:5217 tcp:5217
+# then EXPO_PUBLIC_API_URL=http://127.0.0.1:5217
+```
+
+Hear/extract need `gcloud auth application-default login` once. Local Postgres is empty until you speak a morning. Cloud SQL stays on Cloud Run.
 
 ## CI / CD
 

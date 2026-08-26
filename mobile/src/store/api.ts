@@ -1,9 +1,26 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { File } from 'expo-file-system';
 
 import { type DayRecord, type DeskRecord, type MorningDraft } from '@/lib/api';
 import { getFirebaseAuth } from '@/lib/firebase';
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://dev.get-grounded.app';
+function clipForm(uri: string, extra?: Record<string, string>): FormData {
+  const file = new File(uri);
+  if (!file.exists || file.size < 256) {
+    throw new Error(`clip-too-small:${file.size}`);
+  }
+
+  const body = new FormData();
+  if (extra) {
+    for (const [key, value] of Object.entries(extra)) {
+      body.append(key, value);
+    }
+  }
+  body.append('audio', file);
+  return body;
+}
+
+export const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://dev.get-grounded.app';
 
 export const groundedApi = createApi({
   reducerPath: 'groundedApi',
@@ -68,15 +85,11 @@ export const groundedApi = createApi({
       invalidatesTags: ['Desk', 'History'],
     }),
     hearClip: build.mutation<{ transcript: string }, { uri: string }>({
-      query: ({ uri }) => {
-        const body = new FormData();
-        body.append('audio', {
-          uri,
-          name: 'clip.m4a',
-          type: 'audio/mp4',
-        } as unknown as Blob);
-        return { url: '/voice/hear', method: 'POST', body };
-      },
+      query: ({ uri }) => ({
+        url: '/voice/hear',
+        method: 'POST',
+        body: clipForm(uri),
+      }),
     }),
     extractMorning: build.mutation<MorningDraft, { transcript: string }>({
       query: ({ transcript }) => ({
@@ -89,17 +102,11 @@ export const groundedApi = createApi({
       DeskRecord,
       { kind: 'EVENING_REFLECTION'; timezone: string; uri: string }
     >({
-      query: ({ kind, timezone, uri }) => {
-        const body = new FormData();
-        body.append('kind', kind);
-        body.append('timezone', timezone);
-        body.append('audio', {
-          uri,
-          name: 'clip.m4a',
-          type: 'audio/mp4',
-        } as unknown as Blob);
-        return { url: '/voice/clips', method: 'POST', body };
-      },
+      query: ({ kind, timezone, uri }) => ({
+        url: '/voice/clips',
+        method: 'POST',
+        body: clipForm(uri, { kind, timezone }),
+      }),
       invalidatesTags: ['Desk', 'History'],
     }),
   }),

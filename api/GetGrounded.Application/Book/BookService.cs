@@ -1,10 +1,14 @@
 using GetGrounded.Application.Time;
 using GetGrounded.Domain;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GetGrounded.Application.Book;
 
-public sealed class BookService(IBookStore book, IClock clock)
+public sealed class BookService(IBookStore book, IClock clock, ILogger<BookService>? log = null)
 {
+    private readonly ILogger _log = log ?? NullLogger<BookService>.Instance;
+
     private static readonly HashSet<string> Statuses =
     [
         "PLANNED",
@@ -32,7 +36,7 @@ public sealed class BookService(IBookStore book, IClock clock)
             .ToList();
         var named = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
 
-        return await book.SaveMorningAsync(
+        var day = await book.SaveMorningAsync(
             userId,
             localDate,
             timezone.Trim(),
@@ -40,6 +44,13 @@ public sealed class BookService(IBookStore book, IClock clock)
             planned,
             named,
             cancellationToken);
+        _log.LogInformation(
+            "morning saved user={UserId} date={Date} items={Items} titled={Titled}",
+            userId,
+            localDate,
+            planned.Count,
+            named is not null);
+        return day;
     }
 
     public async Task<DayRecord?> ReflectEveningAsync(

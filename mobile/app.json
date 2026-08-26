@@ -16,6 +16,7 @@
     },
     "android": {
       "package": "app.getgrounded.dev",
+      "usesCleartextTraffic": true,
       "permissions": [
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
