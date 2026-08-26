@@ -11,7 +11,7 @@ resource "google_cloud_run_v2_service" "api" {
   }
 
   template {
-    timeout                          = "30s"
+    timeout                          = "60s"
     max_instance_request_concurrency = 40
     service_account                  = "317766274600-compute@developer.gserviceaccount.com"
 
@@ -65,18 +65,18 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
-        name  = "ELEVENLABS_AGENT_ID"
-        value = var.elevenlabs_agent_id
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = "get-ground-448ca"
       }
 
       env {
-        name = "ELEVENLABS_API_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = var.elevenlabs_api_key_secret_id
-            version = "latest"
-          }
-        }
+        name  = "GOOGLE_CLOUD_LOCATION"
+        value = "us-central1"
+      }
+
+      env {
+        name  = "VERTEX_MODEL"
+        value = "gemini-2.5-flash"
       }
 
       volume_mounts {

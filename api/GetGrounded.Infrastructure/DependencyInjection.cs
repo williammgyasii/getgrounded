@@ -16,16 +16,15 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
-        services.AddHttpClient("elevenlabs", client =>
-        {
-            client.BaseAddress = new Uri("https://api.elevenlabs.io/");
-        });
+        services.AddHttpClient("google");
         services.AddSingleton<ITokenVerifier, FirebaseTokenVerifier>();
         services.AddSingleton<IUserStore, PostgresUserStore>();
         services.AddSingleton<IBookStore, PostgresBookStore>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IDatabasePing, NpgsqlDatabasePing>();
-        services.AddSingleton<IVoiceSessionIssuer, ElevenLabsVoiceSessions>();
+        services.AddSingleton<IAudioStore, MemoryAudioStore>();
+        services.AddSingleton<ISpeechToText, VertexSpeechToText>();
+        services.AddSingleton<ILanguageModel, VertexLanguageModel>();
         return services;
     }
 }

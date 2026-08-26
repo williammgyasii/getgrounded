@@ -27,11 +27,9 @@ module "secret" {
 }
 
 module "cloud_run" {
-  source                        = "../../modules/cloud_run"
-  sql_connection_name           = module.sql.connection_name
-  database_url_secret_id        = module.secret.database_url_secret_id
-  elevenlabs_api_key_secret_id  = module.secret.elevenlabs_api_key_secret_id
-  elevenlabs_agent_id           = "agent_1601m0y7h0mxer8rpc06xrvcpn69"
+  source                 = "../../modules/cloud_run"
+  sql_connection_name    = module.sql.connection_name
+  database_url_secret_id = module.secret.database_url_secret_id
 }
 
 module "wif" {
@@ -48,4 +46,8 @@ module "firebase" {
     google      = google
     google-beta = google-beta
   }
+}
+
+module "vertex" {
+  source = "../../modules/vertex"
 }

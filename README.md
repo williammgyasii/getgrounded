@@ -33,7 +33,7 @@ Already on this machine:
 | gcloud | Cloud Run + Cloud SQL |
 | Wrangler 4.12 | Cloudflare Workers / R2 |
 | Firebase CLI 15 | Auth / App Check later |
-| ElevenLabs CLI 0.5 | Agents as code later |
+| ElevenLabs CLI 0.5 | Parked. Voice is Vertex now. |
 | `dotnet ef` | migrations later |
 | Postgres client | local DB later |
 | Xcode | iOS simulator |

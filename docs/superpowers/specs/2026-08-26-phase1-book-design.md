@@ -77,7 +77,7 @@ Unique `(user_id, local_date)`.
 | `kind` | `TEXT` NOT NULL | `MORNING_PLAN` \| `EVENING_REFLECTION` \| `MIDDAY_UPDATE` |
 | `transcript` | `TEXT` NOT NULL | Typed stand-in now; STT later. Never log this. |
 | `processing_status` | `TEXT` NOT NULL | `RECEIVED` \| `EXTRACTED` \| `FAILED` |
-| `conversation_id` | `TEXT` NULL | ElevenLabs later. |
+| `conversation_id` | `TEXT` NULL | Unused. Not an ElevenLabs or Vertex id. |
 | `storage_key` | `TEXT` NULL | R2 later. |
 | `created_at` | `TIMESTAMPTZ` NOT NULL | Default `now()`. |
 

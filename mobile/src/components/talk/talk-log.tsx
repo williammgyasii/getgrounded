@@ -15,7 +15,7 @@ export function TalkLog() {
   const [planMorning, planState] = usePlanMorningMutation();
   const [reflectEvening, reflectState] = useReflectEveningMutation();
   const [speech, setSpeech] = useState('');
-  const [note, setNote] = useState('One line is one commitment. Wins start with "win:".');
+  const [note, setNote] = useState('One line is one commitment. Wins start with "win:". Voice clips come next.');
   const busy = planState.isLoading || reflectState.isLoading;
 
   async function onPlan() {

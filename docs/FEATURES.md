@@ -23,7 +23,7 @@ Today     History     [ Talk ]     Review     You
 |---|---|---|---|
 | **Today** | Live this day. Greeting, showing-up streak, remaining commitments, yesterday’s honest score. Mic CTA: Plan today / Reflect / Update my day. | Desk you already have, copy from the home mock in the master prompt. | Commitments with COMPLETED / PARTIAL / MISSED. Unplanned wins. Recovery welcome-back. |
 | **History** | Promise ledger: what I said vs what I did. | Empty: “No days spoken yet.” | Daily summaries, past check-ins, “Finish portfolio moved 6 times.” |
-| **Talk** | The voice OS. Morning plan, midday update, evening reflection, coach, Ask My Life. One tap from a notification. | Product copy + mint a ticket. Tabs stay. | ElevenLabs Quick Log + Talk to Coach. Client tools can `navigateToToday`. |
+| **Talk** | The voice OS. Morning plan, midday update, evening reflection, coach, Ask My Life. One tap from a notification. | Typed stand-in. Tabs stay. | `POST /voice/clips` Quick Log + later Gemini Live coach. |
 | **Review** | Follow-through and the week. Facts from SQL, words from AI. | Empty: “A week appears after you show up.” | Weekly review, 84% not 0%, pattern lines, conversational week. |
 | **You** | The person, not the tasks. | Email + sign out. | Coach style, quiet hours, audio retention, partners, call opt-in. |
 
@@ -108,12 +108,12 @@ Nothing in that list needs a sixth tab. New work **fills** a tab.
 
 ## Voice (do not turn Talk into a form)
 
-- **Quick Log** — cheap: morning, evening, midday, short updates. Scribe → API → extract.
-- **Talk to Coach** — expensive: weekly, recovery, conflicts, Ask My Life, phone.
-- ElevenLabs talks. **.NET + Postgres** remember.
-- Secrets stay on the server. The phone only holds a short-lived ticket.
+- **Quick Log** — cheap: morning, evening, midday, short updates. Phone records. API hears on Vertex, extracts, books.
+- **Talk to Coach** — expensive: weekly, recovery, conflicts, Ask My Life, phone. Gemini Live later.
+- Vertex hears. **.NET + Postgres** remember.
+- Secrets stay on the server. The phone never talks to Google AI.
 
-Expo Go can mint a ticket. Live WebRTC needs the GetGrounded **dev build**.
+Expo Go can type the day. Mic Quick Log does not need WebRTC.
 
 ---
 
@@ -133,8 +133,8 @@ Firebase is the phone platform (auth, later FCM / Crashlytics). It is not the bo
 
 ## What we are not building in this UI slice
 
-- Real extraction / reconciliation (API still identity + voice ticket).
-- ElevenLabs in-app conversation (waits on the Android dev build).
+- Live Speech + Gemini on a deployed clip (adapters are in the API; ship when Cloud Run env is applied).
+- In-app microphone UI (typed Talk first).
 - Expo UI native controls (Expo Go cannot host them).
 - A sixth tab, shop, XP, or habit categories the user has to pick.
 

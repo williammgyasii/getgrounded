@@ -66,18 +66,6 @@ export const groundedApi = createApi({
       }),
       invalidatesTags: ['Desk', 'History'],
     }),
-    startVoiceSession: build.mutation<{ conversationToken: string; agentId: string }, void>({
-      query: () => '/voice/session',
-      transformErrorResponse: (response) => {
-        if (response.status === 429) {
-          return 'Voice is busy. Close other ElevenLabs conversations and try again.';
-        }
-        if (response.status === 503) {
-          return 'Voice is not configured on the API yet.';
-        }
-        return 'Could not start a voice session.';
-      },
-    }),
   }),
 });
 
@@ -86,5 +74,4 @@ export const {
   useGetHistoryQuery,
   usePlanMorningMutation,
   useReflectEveningMutation,
-  useStartVoiceSessionMutation,
 } = groundedApi;
