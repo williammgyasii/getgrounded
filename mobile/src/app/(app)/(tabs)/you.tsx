@@ -7,6 +7,7 @@ import { HomeTopBar } from '@/components/home/home-top-bar';
 import { PillButton } from '@/components/auth/pill-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ReflectHoursCard } from '@/components/you/reflect-hours-card';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getFirebaseAuth } from '@/lib/firebase';
@@ -42,6 +43,7 @@ export default function YouScreen() {
           <ThemedText type="smallBold">Signed in</ThemedText>
           <ThemedText themeColor="textSecondary">{user?.email ?? 'your account'}</ThemedText>
         </View>
+        <ReflectHoursCard />
         <PillButton label="Sign out" variant="secondary" onPress={onSignOut} />
       </View>
     </ThemedView>
