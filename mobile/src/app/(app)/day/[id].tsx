@@ -17,6 +17,7 @@ import { AddTakeSheet } from '@/components/talk/add-take-sheet';
 import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { EveningSheet } from '@/components/talk/evening-sheet';
 import { HappenedCard } from '@/components/talk/happened-card';
+import { PageWait } from '@/components/talk/page-wait';
 import { ReflectCue } from '@/components/talk/reflect-cue';
 import { DayWords, type WordTake } from '@/components/talk/day-words';
 import { RoundProgress } from '@/components/talk/round-progress';
@@ -54,9 +55,10 @@ export default function DayScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const timezone = deviceTimezone();
-  const { data: history = [] } = useGetHistoryQuery(timezone);
-  const { data: desk } = useGetDeskQuery(timezone);
+  const { data: history = [], isLoading: historyLoading } = useGetHistoryQuery(timezone);
+  const { data: desk, isLoading: deskLoading } = useGetDeskQuery(timezone);
   const day = id ? findDay(id, history, desk) : null;
+  const waiting = day == null && (historyLoading || deskLoading);
   const [savedWords, setSavedWords] = useState<WordTake[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [wordsOpen, setWordsOpen] = useState(false);
@@ -247,7 +249,9 @@ export default function DayScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + Spacing.five }]}
         onScrollBeginDrag={() => setMenuOpen(false)}>
-        {day == null ? (
+        {waiting ? (
+          <PageWait />
+        ) : day == null ? (
           <ThemedText themeColor="textSecondary">That day is not on this phone yet.</ThemedText>
         ) : (
           <Animated.View entering={FadeIn.duration(240)} style={styles.bodyInner}>

@@ -9,6 +9,7 @@ import { HomeTopBar } from '@/components/home/home-top-bar';
 import { agendaSummary } from '@/components/talk/day-agenda';
 import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { EveningSheet } from '@/components/talk/evening-sheet';
+import { PageWait } from '@/components/talk/page-wait';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -28,7 +29,9 @@ export default function TasksScreen() {
   const theme = useTheme();
   const user = useAuthUser();
   const signedIn = user != null;
-  const { data: days = [], refetch } = useGetHistoryQuery(deviceTimezone(), { skip: !signedIn });
+  const { data, isLoading, refetch } = useGetHistoryQuery(deviceTimezone(), { skip: !signedIn });
+  const days = data ?? [];
+  const waiting = signedIn && isLoading;
   const [removeDay] = useRemoveDayMutation();
   const today = useReflectToday();
   const [pending, setPending] = useState<{ id: string; title: string } | null>(null);
@@ -68,8 +71,9 @@ export default function TasksScreen() {
         initial={initialFrom(user?.email)}
         onAvatarPress={() => router.push('/you')}
       />
+      {waiting ? <PageWait /> : null}
       <ScrollView contentContainerStyle={styles.content}>
-        {days.length === 0 ? (
+        {waiting ? null : days.length === 0 ? (
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <ThemedText type="smallBold">No days yet</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.copy}>

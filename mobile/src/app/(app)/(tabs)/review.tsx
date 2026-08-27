@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuthUser } from '@/components/auth/auth-session';
 import { HomeTopBar } from '@/components/home/home-top-bar';
+import { PageWait } from '@/components/talk/page-wait';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
@@ -24,7 +25,7 @@ export default function ReviewScreen() {
   const user = useAuthUser();
   const signedIn = user != null;
   const timezone = deviceTimezone();
-  const { data: review, refetch } = useGetReviewQuery(timezone, { skip: !signedIn });
+  const { data: review, isLoading, refetch } = useGetReviewQuery(timezone, { skip: !signedIn });
 
   useFocusEffect(
     useCallback(() => {
@@ -34,7 +35,7 @@ export default function ReviewScreen() {
     }, [signedIn, refetch]),
   );
 
-  const empty = review == null || review.followThrough == null;
+  const waiting = signedIn && isLoading;
 
   return (
     <ThemedView style={styles.screen}>
@@ -44,8 +45,9 @@ export default function ReviewScreen() {
         initial={initialFrom(user?.email)}
         onAvatarPress={() => router.push('/you')}
       />
+      {waiting ? <PageWait /> : null}
       <ScrollView contentContainerStyle={styles.content}>
-        {empty ? (
+        {waiting ? null : review == null || review.followThrough == null ? (
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <ThemedText type="smallBold">This week</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.copy}>

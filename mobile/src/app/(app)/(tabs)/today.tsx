@@ -6,6 +6,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useAuthUser } from '@/components/auth/auth-session';
 import { HomeTopBar } from '@/components/home/home-top-bar';
 import { EveningSheet } from '@/components/talk/evening-sheet';
+import { PageWait } from '@/components/talk/page-wait';
 import { ReflectCue } from '@/components/talk/reflect-cue';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -44,10 +45,13 @@ export default function HomeScreen() {
   const user = useAuthUser();
   const signedIn = user != null;
   const timezone = deviceTimezone();
-  const { data: desk, refetch: refetchDesk } = useGetDeskQuery(timezone, { skip: !signedIn });
+  const { data: desk, isLoading: deskLoading, refetch: refetchDesk } = useGetDeskQuery(timezone, {
+    skip: !signedIn,
+  });
   const { data: history = [], refetch: refetchHistory } = useGetHistoryQuery(timezone, {
     skip: !signedIn,
   });
+  const waiting = signedIn && deskLoading;
   const inWindow = useReflectOpen();
   const reflectToday = useReflectToday();
   const book = desk?.today
@@ -95,6 +99,8 @@ export default function HomeScreen() {
         initial={initialFrom(user?.email)}
         onAvatarPress={onAvatar}
       />
+      {waiting ? <PageWait /> : null}
+      {waiting ? null : (
       <ScrollView contentContainerStyle={styles.content}>
         <ReflectCue
           visible={inWindow && openNights.length > 0}
@@ -216,6 +222,7 @@ export default function HomeScreen() {
           </ThemedText>
         </Pressable>
       </ScrollView>
+      )}
       <EveningSheet day={recover} onClose={() => setRecover(null)} />
     </ThemedView>
   );
