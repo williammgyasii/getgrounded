@@ -72,6 +72,29 @@ public sealed class ClipService(
         return draft;
     }
 
+    public async Task<MiddayDraft> ExtractMiddayAsync(
+        Guid userId,
+        Guid dayId,
+        string transcript,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+        {
+            throw new ArgumentException("Transcript is required.", nameof(transcript));
+        }
+
+        var day = await book.GetDayByIdAsync(userId, dayId, cancellationToken)
+            ?? throw new ArgumentException("Day is required.", nameof(dayId));
+        _log.LogInformation("extract midday started chars={Chars} items={Items}", transcript.Length, day.Commitments.Count);
+        var draft = await interpreter.ReadMiddayAsync(transcript, day.Commitments, cancellationToken);
+        _log.LogInformation(
+            "extract midday ok add={Add} outcomes={Outcomes} extras={Extras}",
+            draft.Add.Count,
+            draft.Outcomes.Count,
+            draft.Extras.Count);
+        return draft;
+    }
+
     public async Task<DeskRecord> CaptureAsync(
         Guid userId,
         string kind,

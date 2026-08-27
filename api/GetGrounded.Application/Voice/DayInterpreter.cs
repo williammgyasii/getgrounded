@@ -108,6 +108,67 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         return new EveningDraft(outcomes, wins, mirror);
     }
 
+    public async Task<MiddayDraft> ReadMiddayAsync(
+        string transcript,
+        IReadOnlyList<CommitmentRecord> planned,
+        CancellationToken cancellationToken = default)
+    {
+        MiddayPayload? payload = null;
+        try
+        {
+            var raw = SliceJson(await model.CompleteJsonAsync(MiddaySystem(planned), transcript, cancellationToken));
+            payload = JsonSerializer.Deserialize<MiddayPayload>(raw, Json);
+        }
+        catch (JsonException)
+        {
+            payload = null;
+        }
+
+        if (payload is null)
+        {
+            return new MiddayDraft([], [], []);
+        }
+
+        var known = planned.Select(item => item.Id).ToHashSet();
+        var seen = new HashSet<Guid>();
+        var outcomes = new List<OutcomeItem>();
+        foreach (var row in payload.Outcomes ?? [])
+        {
+            if (!Guid.TryParse(row.Id, out var id) || !known.Contains(id) || !seen.Add(id))
+            {
+                continue;
+            }
+
+            var status = row.Status?.Trim().ToUpperInvariant();
+            if (status is null || !Statuses.Contains(status))
+            {
+                continue;
+            }
+
+            outcomes.Add(new OutcomeItem(id, status, row.ActualDurationMinutes, row.Reason));
+        }
+
+        var add = (payload.Add ?? [])
+            .Select(row => new PlannedItem(
+                Titles.Sentence(row.Title),
+                row.PlannedDurationMinutes,
+                ReadStart(row),
+                ReadArea(row.LifeArea) ?? DayPlanner.GuessArea(Titles.Sentence(row.Title))))
+            .Where(item => item.Title.Length > 0)
+            .ToList();
+
+        var extras = (payload.Extras ?? [])
+            .Select(row =>
+            {
+                var title = Titles.Sentence(row.Title);
+                return new WinItem(title, ReadArea(row.LifeArea) ?? DayPlanner.GuessArea(title));
+            })
+            .Where(win => win.Title.Length > 0)
+            .ToList();
+
+        return new MiddayDraft(DayPlanner.LayOut(add, 12 * 60), outcomes, extras);
+    }
+
     private const string MorningSystem =
         "Return JSON only. Pick real commitments, not filler. Title and commitment titles must be sentence case. plannedStart is 24h HH:mm local or null if they did not say a time. lifeArea is WORK, LEARNING, HEALTH, SPIRITUAL, RELATIONSHIPS, FINANCIAL, HOME, or PERSONAL. {\"title\":\"\",\"commitments\":[{\"title\":\"\",\"plannedStart\":null,\"plannedDurationMinutes\":null,\"lifeArea\":null}]}";
 
@@ -180,6 +241,16 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         int? PlannedStartMinute,
         string? LifeArea,
         float? Confidence);
+    private static string MiddaySystem(IReadOnlyList<CommitmentRecord> items)
+    {
+        var labeled = string.Join("; ", items.Select(item => $"{item.Id}:{item.Title}"));
+        return $"You are a midday update, not a new morning and not a night close. Planned: {labeled}. outcomes only for tasks they named. Do not invent outcomes for the rest. Statuses: COMPLETED,PARTIAL,MISSED,RESCHEDULED,CANCELLED,BLOCKED. add is new tasks they want on the plan. extras is unplanned things they already did that are not new plan items. Never invent. lifeArea is WORK, LEARNING, HEALTH, SPIRITUAL, RELATIONSHIPS, FINANCIAL, HOME, or PERSONAL. plannedStart is 24h HH:mm or null. Sentence case. {{\"outcomes\":[{{\"id\":\"\",\"status\":\"\"}}],\"add\":[{{\"title\":\"\",\"plannedStart\":null,\"plannedDurationMinutes\":null,\"lifeArea\":\"\"}}],\"extras\":[{{\"title\":\"\",\"lifeArea\":\"\"}}]}}";
+    }
+
+    private sealed record MiddayPayload(
+        IReadOnlyList<EveningRow>? Outcomes,
+        IReadOnlyList<MorningRow>? Add,
+        IReadOnlyList<WinRow>? Extras);
     private sealed record EveningPayload(IReadOnlyList<EveningRow>? Outcomes, IReadOnlyList<WinRow>? Wins, string? Mirror);
     private sealed record EveningRow(string? Id, string? Status, int? ActualDurationMinutes, string? Reason);
     private sealed record WinRow(string? Title, string? LifeArea);

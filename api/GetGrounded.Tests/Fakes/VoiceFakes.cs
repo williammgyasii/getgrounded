@@ -22,6 +22,16 @@ public sealed class StubLanguageModel(string json) : ILanguageModel
     }
 }
 
+public sealed class ScriptedLanguageModel : ILanguageModel
+{
+    public string Json { get; set; } = """{"commitments":[]}""";
+
+    public Task<string> CompleteJsonAsync(string system, string user, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(Json);
+    }
+}
+
 public sealed class DownLanguageModel : ILanguageModel
 {
     public Task<string> CompleteJsonAsync(string system, string user, CancellationToken cancellationToken)

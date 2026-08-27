@@ -96,6 +96,77 @@ public sealed class MemoryBookStore : IBookStore
         return Task.FromResult<DayRecord?>(day.ToRecord());
     }
 
+    public Task<DayRecord?> SaveMiddayAsync(
+        Guid userId,
+        Guid dayId,
+        string timezone,
+        string transcript,
+        IReadOnlyList<PlannedItem> add,
+        IReadOnlyList<OutcomeItem> outcomes,
+        IReadOnlyList<WinItem> extras,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
+        CancellationToken cancellationToken = default)
+    {
+        var day = Find(userId, dayId);
+        if (day is null)
+        {
+            return Task.FromResult<DayRecord?>(null);
+        }
+
+        if (day.Clips.Any(clip => clip.Kind == "EVENING_REFLECTION"))
+        {
+            throw new InvalidOperationException("closed");
+        }
+
+        day.Timezone = timezone;
+        var clipId = Guid.CreateVersion7();
+        _clipKeys[clipId] = storageKey;
+        day.Clips.Add(new ClipRecord(
+            clipId,
+            "MIDDAY_UPDATE",
+            transcript,
+            DateTimeOffset.UtcNow,
+            storageKey is not null,
+            words));
+
+        foreach (var outcome in outcomes)
+        {
+            var index = day.Commitments.FindIndex(item => item.Id == outcome.Id);
+            if (index < 0)
+            {
+                throw new ArgumentException("One or more outcomes do not belong to this day.");
+            }
+
+            var current = day.Commitments[index];
+            day.Commitments[index] = current with
+            {
+                Status = outcome.Status,
+                ActualDurationMinutes = outcome.ActualDurationMinutes
+            };
+        }
+
+        foreach (var item in add)
+        {
+            day.Commitments.Add(new CommitmentRecord(
+                Guid.CreateVersion7(),
+                item.Title,
+                "PLANNED",
+                item.PlannedDurationMinutes,
+                null,
+                item.PlannedStartMinute,
+                item.LifeArea,
+                DateTimeOffset.UtcNow));
+        }
+
+        foreach (var extra in extras)
+        {
+            day.Wins.Add(new WinRecord(Guid.CreateVersion7(), extra.Title, extra.LifeArea));
+        }
+
+        return Task.FromResult<DayRecord?>(day.ToRecord());
+    }
+
     public Task<DayRecord?> GetDayAsync(
         Guid userId,
         DateOnly localDate,

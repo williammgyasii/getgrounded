@@ -137,6 +137,31 @@ public class DayInterpreterTests
         Assert.Contains("called your friends", draft.Mirror, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Midday_keeps_named_outcomes_adds_and_extras()
+    {
+        var gym = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var read = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var model = new StubLanguageModel(
+            """{"outcomes":[{"id":"11111111-1111-1111-1111-111111111111","status":"COMPLETED"}],"add":[{"title":"call dad","plannedStart":"16:00","lifeArea":"RELATIONSHIPS"}],"extras":[{"title":"took a shower","lifeArea":"HEALTH"}]}""");
+        var interpreter = new DayInterpreter(model);
+
+        var draft = await interpreter.ReadMiddayAsync(
+            "Gym is done. Add a call with dad at 4. I took a shower.",
+            [
+                new CommitmentRecord(gym, "Gym", "PLANNED", null, null),
+                new CommitmentRecord(read, "Read", "PLANNED", null, null)
+            ]);
+
+        Assert.Single(draft.Outcomes);
+        Assert.Equal(gym, draft.Outcomes[0].Id);
+        Assert.Equal("COMPLETED", draft.Outcomes[0].Status);
+        Assert.Equal("Call dad", draft.Add[0].Title);
+        Assert.Equal(16 * 60, draft.Add[0].PlannedStartMinute);
+        Assert.Equal("Took a shower", draft.Extras[0].Title);
+        Assert.Equal("HEALTH", draft.Extras[0].LifeArea);
+    }
+
     private sealed class StubLanguageModel(string json) : ILanguageModel
     {
         public Task<string> CompleteJsonAsync(string system, string user, CancellationToken cancellationToken)

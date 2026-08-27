@@ -57,13 +57,41 @@ public sealed class VoiceController(AuthService auth, ClipService clips) : Contr
             return Unauthorized();
         }
 
-        if (body.Kind is not "MORNING_PLAN" and not "EVENING_REFLECTION")
+        if (body.Kind is not "MORNING_PLAN" and not "EVENING_REFLECTION" and not "MIDDAY_UPDATE")
         {
             return BadRequest(new { error = "kind" });
         }
 
         try
         {
+            if (body.Kind == "MIDDAY_UPDATE")
+            {
+                if (body.DayId is not Guid middayId)
+                {
+                    return BadRequest(new { error = "day" });
+                }
+
+                var noon = await clips.ExtractMiddayAsync(user.Id, middayId, body.Transcript, cancellationToken);
+                return Ok(new
+                {
+                    add = noon.Add.Select(item => new
+                    {
+                        title = item.Title,
+                        plannedStartMinute = item.PlannedStartMinute,
+                        plannedDurationMinutes = item.PlannedDurationMinutes,
+                        lifeArea = item.LifeArea
+                    }),
+                    outcomes = noon.Outcomes.Select(item => new
+                    {
+                        id = item.Id,
+                        status = item.Status,
+                        actualDurationMinutes = item.ActualDurationMinutes,
+                        reason = item.Reason
+                    }),
+                    extras = noon.Extras.Select(item => new { title = item.Title, lifeArea = item.LifeArea })
+                });
+            }
+
             if (body.Kind == "EVENING_REFLECTION")
             {
                 if (body.DayId is not Guid dayId)

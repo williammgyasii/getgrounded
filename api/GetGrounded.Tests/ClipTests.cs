@@ -233,6 +233,44 @@ public class ClipTests
     }
 
     [Fact]
+    public async Task Extract_midday_uses_that_day_and_does_not_book()
+    {
+        var script = new ScriptedLanguageModel();
+        using var factory = CreateFactory(new StubSpeechToText("x"), script);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Gym and read.",
+            title = "Gym day",
+            commitments = new[] { new { title = "Gym" }, new { title = "Read" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+        script.Json =
+            $$"""{"outcomes":[{"id":"{{day!.Commitments[0].Id}}","status":"COMPLETED"}],"add":[{"title":"call dad"}],"extras":[{"title":"took a shower","lifeArea":"HEALTH"}]}""";
+
+        var extracted = await client.PostAsJsonAsync("/voice/extract", new
+        {
+            kind = "MIDDAY_UPDATE",
+            transcript = "Gym is done. Add a call with dad. I took a shower.",
+            dayId = day.Id
+        });
+        var noon = await extracted.Content.ReadFromJsonAsync<MiddayExtractBody>(Json);
+        var desk = await (await client.GetAsync("/days/today?timezone=UTC")).Content.ReadFromJsonAsync<DeskBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, extracted.StatusCode);
+        Assert.Equal("COMPLETED", noon!.Outcomes[0].Status);
+        Assert.Equal(day.Commitments[0].Id, noon.Outcomes[0].Id);
+        Assert.Equal("Call dad", noon.Add[0].Title);
+        Assert.Equal("Took a shower", noon.Extras[0].Title);
+        Assert.Equal("PLANNED", desk!.Today!.Commitments[0].Status);
+        Assert.Single(desk.Today.Commitments, item => item.Title == "Gym");
+        Assert.DoesNotContain(desk.Today.Commitments, item => item.Title == "Call dad");
+    }
+
+    [Fact]
     public async Task Garbage_extract_is_bad_gateway()
     {
         using var factory = CreateFactory(
@@ -380,6 +418,10 @@ public class ClipTests
     private sealed record HearBody(string Transcript, string? StorageKey, IReadOnlyList<WordBody>? Words);
     private sealed record ExtractBody(string? Title, IReadOnlyList<ExtractItem> Commitments);
     private sealed record EveningExtractBody(IReadOnlyList<EveningOutcomeBody> Outcomes, IReadOnlyList<WinDraftBody> Wins);
+    private sealed record MiddayExtractBody(
+        IReadOnlyList<ExtractItem> Add,
+        IReadOnlyList<EveningOutcomeBody> Outcomes,
+        IReadOnlyList<WinDraftBody> Extras);
     private sealed record EveningOutcomeBody(Guid Id, string Status);
     private sealed record WinDraftBody(string Title);
     private sealed record ExtractItem(

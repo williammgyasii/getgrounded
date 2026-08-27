@@ -183,6 +183,153 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         return await LoadDayAsync(connection, userId, localDate, cancellationToken);
     }
 
+    public async Task<DayRecord?> SaveMiddayAsync(
+        Guid userId,
+        Guid dayId,
+        string timezone,
+        string transcript,
+        IReadOnlyList<PlannedItem> add,
+        IReadOnlyList<OutcomeItem> outcomes,
+        IReadOnlyList<WinItem> extras,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await BookSchema.EnsureAsync(connection, cancellationToken);
+        var existing = await LoadDayByIdAsync(connection, userId, dayId, cancellationToken);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        if (existing.Clips.Any(clip => clip.Kind == "EVENING_REFLECTION"))
+        {
+            throw new InvalidOperationException("closed");
+        }
+
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+        await InsertSessionAsync(
+            connection,
+            tx,
+            userId,
+            dayId,
+            "MIDDAY_UPDATE",
+            transcript,
+            cancellationToken,
+            storageKey,
+            words);
+
+        if (outcomes.Count > 0)
+        {
+            var ids = outcomes.Select(item => item.Id).ToArray();
+            var statuses = outcomes.Select(item => item.Status).ToArray();
+            var actuals = outcomes.Select(item => (int?)item.ActualDurationMinutes).ToArray();
+            var reasons = outcomes.Select(item => (string?)item.Reason).ToArray();
+
+            await using var update = new NpgsqlCommand(
+                """
+                UPDATE commitments AS c
+                SET
+                  status = u.status,
+                  actual_duration_minutes = u.actual,
+                  reason = u.reason,
+                  updated_at = now()
+                FROM UNNEST($1::uuid[], $2::text[], $3::int[], $4::text[])
+                  AS u(id, status, actual, reason)
+                WHERE c.id = u.id AND c.user_id = $5 AND c.day_id = $6
+                """,
+                connection, tx)
+            {
+                Parameters =
+                {
+                    new NpgsqlParameter { Value = ids },
+                    new NpgsqlParameter { Value = statuses },
+                    new NpgsqlParameter { Value = actuals },
+                    new NpgsqlParameter { Value = reasons },
+                    new NpgsqlParameter { Value = userId },
+                    new NpgsqlParameter { Value = dayId }
+                }
+            };
+            var updated = await update.ExecuteNonQueryAsync(cancellationToken);
+            if (updated != outcomes.Count)
+            {
+                throw new ArgumentException("One or more outcomes do not belong to this day.");
+            }
+        }
+
+        if (add.Count > 0)
+        {
+            var sortBase = existing.Commitments.Count;
+            var ids = add.Select(_ => Guid.CreateVersion7()).ToArray();
+            var userIds = Enumerable.Repeat(userId, add.Count).ToArray();
+            var dayIds = Enumerable.Repeat(dayId, add.Count).ToArray();
+            var titles = add.Select(item => item.Title).ToArray();
+            var durations = add.Select(item => (int?)item.PlannedDurationMinutes).ToArray();
+            var starts = add.Select(item => item.PlannedStartMinute is int minute
+                ? LocalClock.At(timezone, existing.LocalDate, minute)
+                : (DateTimeOffset?)null).ToArray();
+            var areas = add.Select(item => (string?)item.LifeArea).ToArray();
+            var sorts = Enumerable.Range(sortBase, add.Count).ToArray();
+
+            await using var insert = new NpgsqlCommand(
+                """
+                INSERT INTO commitments (
+                  id, user_id, day_id, title, status, planned_at, planned_duration_minutes, life_area, source, sort_order)
+                SELECT u.id, u.user_id, u.day_id, u.title, 'PLANNED', u.starts, u.mins, u.area, 'MIDDAY_UPDATE', u.sort
+                FROM UNNEST($1::uuid[], $2::uuid[], $3::uuid[], $4::text[], $5::timestamptz[], $6::int[], $7::text[], $8::int[])
+                  AS u(id, user_id, day_id, title, starts, mins, area, sort)
+                """,
+                connection, tx)
+            {
+                Parameters =
+                {
+                    new NpgsqlParameter { Value = ids },
+                    new NpgsqlParameter { Value = userIds },
+                    new NpgsqlParameter { Value = dayIds },
+                    new NpgsqlParameter { Value = titles },
+                    new NpgsqlParameter { Value = starts, DataTypeName = "timestamptz[]" },
+                    new NpgsqlParameter { Value = durations },
+                    new NpgsqlParameter { Value = areas },
+                    new NpgsqlParameter { Value = sorts }
+                }
+            };
+            await insert.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        if (extras.Count > 0)
+        {
+            var ids = extras.Select(_ => Guid.CreateVersion7()).ToArray();
+            var userIds = Enumerable.Repeat(userId, extras.Count).ToArray();
+            var dayIds = Enumerable.Repeat(dayId, extras.Count).ToArray();
+            var titles = extras.Select(item => item.Title).ToArray();
+            var areas = extras.Select(item => (string?)item.LifeArea).ToArray();
+
+            await using var insert = new NpgsqlCommand(
+                """
+                INSERT INTO wins (id, user_id, day_id, title, source, life_area)
+                SELECT u.id, u.user_id, u.day_id, u.title, 'MIDDAY_UPDATE', u.life_area
+                FROM UNNEST($1::uuid[], $2::uuid[], $3::uuid[], $4::text[], $5::text[])
+                  AS u(id, user_id, day_id, title, life_area)
+                """,
+                connection, tx)
+            {
+                Parameters =
+                {
+                    new NpgsqlParameter { Value = ids },
+                    new NpgsqlParameter { Value = userIds },
+                    new NpgsqlParameter { Value = dayIds },
+                    new NpgsqlParameter { Value = titles },
+                    new NpgsqlParameter { Value = areas }
+                }
+            };
+            await insert.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return await LoadDayByIdAsync(connection, userId, dayId, cancellationToken);
+    }
+
     public Task<DayRecord?> GetDayAsync(
         Guid userId,
         DateOnly localDate,

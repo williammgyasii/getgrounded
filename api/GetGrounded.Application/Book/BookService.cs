@@ -111,6 +111,62 @@ public sealed class BookService(IBookStore book, IClock clock, IAudioStore? audi
             cancellationToken);
     }
 
+    public async Task<DayRecord?> UpdateMiddayAsync(
+        Guid userId,
+        Guid dayId,
+        string timezone,
+        string transcript,
+        IReadOnlyList<PlannedItem> add,
+        IReadOnlyList<OutcomeItem> outcomes,
+        IReadOnlyList<WinItem> extras,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
+        CancellationToken cancellationToken = default)
+    {
+        RequireSpeech(transcript);
+        foreach (var outcome in outcomes)
+        {
+            if (!Statuses.Contains(outcome.Status))
+            {
+                throw new ArgumentException($"Unknown commitment status '{outcome.Status}'.", nameof(outcomes));
+            }
+        }
+
+        var existing = await book.GetDayByIdAsync(userId, dayId, cancellationToken);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        if (existing.Clips.Any(clip => clip.Kind == "EVENING_REFLECTION"))
+        {
+            throw new InvalidOperationException("closed");
+        }
+
+        var spokenMinute = LocalClock.MinuteOfDay(timezone, clock.UtcNow);
+        var placed = DayPlanner.LayOut(add, spokenMinute);
+        var cleanedAdd = placed
+            .Select(item => item with { Title = Titles.Sentence(item.Title) })
+            .Where(item => item.Title.Length > 0)
+            .ToList();
+        var cleanedExtras = extras
+            .Select(win => win with { Title = Titles.Sentence(win.Title) })
+            .Where(win => win.Title.Length > 0)
+            .ToList();
+
+        return await book.SaveMiddayAsync(
+            userId,
+            dayId,
+            timezone.Trim(),
+            transcript,
+            cleanedAdd,
+            outcomes,
+            cleanedExtras,
+            storageKey,
+            words,
+            cancellationToken);
+    }
+
     public Task<DayRecord?> GetDayByIdAsync(
         Guid userId,
         Guid dayId,

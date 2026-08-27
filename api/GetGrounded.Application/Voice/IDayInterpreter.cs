@@ -12,4 +12,8 @@ public interface IDayInterpreter
         string transcript,
         IReadOnlyList<CommitmentRecord> planned,
         CancellationToken cancellationToken = default);
+    Task<MiddayDraft> ReadMiddayAsync(
+        string transcript,
+        IReadOnlyList<CommitmentRecord> planned,
+        CancellationToken cancellationToken = default);
 }

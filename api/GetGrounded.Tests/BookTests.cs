@@ -247,6 +247,62 @@ public class BookTests
     }
 
     [Fact]
+    public async Task Midday_appends_and_patches_named_tasks()
+    {
+        var store = new MemoryBookStore();
+        var book = new BookService(store, new TestClock(NoonUtc));
+        var morning = await book.PlanMorningAsync(
+            Person,
+            "UTC",
+            "Gym and read.",
+            [new PlannedItem("Gym"), new PlannedItem("Read")]);
+
+        var midday = await book.UpdateMiddayAsync(
+            Person,
+            morning.Id,
+            "UTC",
+            "Gym is done. Add a call with dad. Took a shower.",
+            [new PlannedItem("Call dad", PlannedStartMinute: 16 * 60, LifeArea: "RELATIONSHIPS")],
+            [new OutcomeItem(morning.Commitments[0].Id, "COMPLETED")],
+            [new WinItem("Took a shower", "HEALTH")]);
+
+        Assert.NotNull(midday);
+        Assert.Equal(morning.Id, midday.Id);
+        Assert.Equal("COMPLETED", midday.Commitments[0].Status);
+        Assert.Equal("PLANNED", midday.Commitments[1].Status);
+        Assert.Equal("Call dad", midday.Commitments[2].Title);
+        Assert.Equal("PLANNED", midday.Commitments[2].Status);
+        Assert.Equal(["Took a shower"], midday.Wins.Select(item => item.Title).ToArray());
+        Assert.Contains(midday.Clips, clip => clip.Kind == "MIDDAY_UPDATE");
+    }
+
+    [Fact]
+    public async Task Midday_refuses_a_closed_night()
+    {
+        var store = new MemoryBookStore();
+        var book = new BookService(store, new TestClock(NoonUtc));
+        var morning = await book.PlanMorningAsync(
+            Person, "UTC", "Gym.", [new PlannedItem("Gym")]);
+        await book.ReflectEveningAsync(
+            Person,
+            "UTC",
+            "Did gym.",
+            [new OutcomeItem(morning.Commitments[0].Id, "COMPLETED")],
+            [],
+            morning.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            book.UpdateMiddayAsync(
+                Person,
+                morning.Id,
+                "UTC",
+                "Add a walk.",
+                [new PlannedItem("Walk")],
+                [],
+                []));
+    }
+
+    [Fact]
     public async Task History_returns_the_spoken_day()
     {
         var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));

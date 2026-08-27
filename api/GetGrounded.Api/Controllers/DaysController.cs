@@ -135,6 +135,51 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         }
     }
 
+    [HttpPost("midday")]
+    public async Task<IActionResult> Midday([FromBody] MiddayRequest body, CancellationToken cancellationToken)
+    {
+        var user = await IdentifyAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var add = (body.Add ?? [])
+                .Select(item => new PlannedItem(
+                    item.Title,
+                    item.PlannedDurationMinutes,
+                    item.PlannedStartMinute,
+                    item.LifeArea))
+                .ToList();
+            var outcomes = (body.Outcomes ?? [])
+                .Select(item => new OutcomeItem(item.Id, item.Status, item.ActualDurationMinutes, item.Reason))
+                .ToList();
+            var extras = (body.Extras ?? []).Select(item => new WinItem(item.Title, item.LifeArea)).ToList();
+            var day = await book.UpdateMiddayAsync(
+                user.Id,
+                body.DayId,
+                body.Timezone,
+                body.Transcript,
+                add,
+                outcomes,
+                extras,
+                body.StorageKey,
+                body.Words,
+                cancellationToken);
+            return day is null ? NotFound() : Ok(day);
+        }
+        catch (InvalidOperationException)
+        {
+            return Conflict(new { error = "closed" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPatch("{dayId:guid}")]
     public async Task<IActionResult> Rename(Guid dayId, [FromBody] RenameRequest body, CancellationToken cancellationToken)
     {
@@ -225,6 +270,16 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         IReadOnlyList<OutcomeDraft>? Outcomes,
         IReadOnlyList<WinDraft>? Wins,
         Guid? DayId = null,
+        string? StorageKey = null,
+        IReadOnlyList<SpokenWord>? Words = null);
+
+    public sealed record MiddayRequest(
+        Guid DayId,
+        string Timezone,
+        string Transcript,
+        IReadOnlyList<CommitmentDraft>? Add,
+        IReadOnlyList<OutcomeDraft>? Outcomes,
+        IReadOnlyList<WinDraft>? Extras,
         string? StorageKey = null,
         IReadOnlyList<SpokenWord>? Words = null);
 

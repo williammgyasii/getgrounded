@@ -216,6 +216,62 @@ public class DaysTests
     }
 
     [Fact]
+    public async Task Midday_writes_the_book_and_refuses_a_closed_night()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Gym and read.",
+            title = "Gym day",
+            commitments = new[] { new { title = "Gym" }, new { title = "Read" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        var midday = await client.PostAsJsonAsync("/days/midday", new
+        {
+            timezone = "UTC",
+            transcript = "Gym is done. Add a call with dad. Took a shower.",
+            dayId = day!.Id,
+            add = new[] { new { title = "Call dad" } },
+            outcomes = new object[] { new { id = day.Commitments[0].Id, status = "COMPLETED" } },
+            extras = new[] { new { title = "Took a shower" } }
+        });
+        var updated = await midday.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, midday.StatusCode);
+        Assert.Equal(day.Id, updated!.Id);
+        Assert.Equal("COMPLETED", updated.Commitments[0].Status);
+        Assert.Equal("PLANNED", updated.Commitments[1].Status);
+        Assert.Equal("Call dad", updated.Commitments[2].Title);
+        Assert.Equal(["Took a shower"], updated.Wins.Select(item => item.Title).ToArray());
+        Assert.Contains(updated.Clips, clip => clip.Kind == "MIDDAY_UPDATE");
+
+        await client.PostAsJsonAsync("/days/evening", new
+        {
+            timezone = "UTC",
+            transcript = "Night closed.",
+            dayId = day.Id,
+            outcomes = new object[] { new { id = day.Commitments[0].Id, status = "COMPLETED" } },
+            wins = Array.Empty<object>()
+        });
+
+        var refused = await client.PostAsJsonAsync("/days/midday", new
+        {
+            timezone = "UTC",
+            transcript = "Too late.",
+            dayId = day.Id,
+            add = Array.Empty<object>(),
+            outcomes = Array.Empty<object>(),
+            extras = Array.Empty<object>()
+        });
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+    }
+
+    [Fact]
     public async Task Review_scores_closed_nights_only()
     {
         using var factory = CreateFactory();

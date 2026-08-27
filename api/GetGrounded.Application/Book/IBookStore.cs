@@ -26,6 +26,18 @@ public interface IBookStore
         IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default);
 
+    Task<DayRecord?> SaveMiddayAsync(
+        Guid userId,
+        Guid dayId,
+        string timezone,
+        string transcript,
+        IReadOnlyList<PlannedItem> add,
+        IReadOnlyList<OutcomeItem> outcomes,
+        IReadOnlyList<WinItem> extras,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
+        CancellationToken cancellationToken = default);
+
     Task<DayRecord?> GetDayAsync(
         Guid userId,
         DateOnly localDate,
