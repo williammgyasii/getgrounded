@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { ThemedText } from '@/components/themed-text';
@@ -39,7 +39,6 @@ export function TaskRows({
           <Animated.View
             key={item.key}
             entering={FadeIn.duration(220)}
-            layout={LinearTransition.springify().damping(18)}
             style={[
               styles.row,
               { backgroundColor: look.wash },

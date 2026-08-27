@@ -243,7 +243,10 @@ export default function DayScreen() {
           </Pressable>
         </Animated.View>
       ) : null}
-      <ScrollView contentContainerStyle={styles.body} onScrollBeginDrag={() => setMenuOpen(false)}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + Spacing.five }]}
+        onScrollBeginDrag={() => setMenuOpen(false)}>
         {day == null ? (
           <ThemedText themeColor="textSecondary">That day is not on this phone yet.</ThemedText>
         ) : (
@@ -389,6 +392,9 @@ function ReflectMic({ pulsing, onPress }: { pulsing: boolean; onPress: () => voi
 
 const styles = StyleSheet.create({
   screen: {
+    flex: 1,
+  },
+  scroll: {
     flex: 1,
   },
   header: {
