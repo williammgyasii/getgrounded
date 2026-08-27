@@ -183,6 +183,38 @@ public class DaysTests
         Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
     }
 
+    [Fact]
+    public async Task Evening_can_close_a_named_day()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Gym.",
+            title = "Gym day",
+            commitments = new[] { new { title = "Gym" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        var evening = await client.PostAsJsonAsync("/days/evening", new
+        {
+            timezone = "UTC",
+            transcript = "Gym yes.",
+            dayId = day!.Id,
+            outcomes = new object[] { new { id = day.Commitments[0].Id, status = "COMPLETED" } },
+            wins = Array.Empty<object>()
+        });
+        var closed = await evening.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, evening.StatusCode);
+        Assert.Equal(day.Id, closed!.Id);
+        Assert.Equal("COMPLETED", closed.Commitments[0].Status);
+        Assert.Contains(closed.Clips, clip => clip.Kind == "EVENING_REFLECTION");
+    }
+
     private static WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

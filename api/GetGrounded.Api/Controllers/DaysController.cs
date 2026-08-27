@@ -97,14 +97,18 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
             var outcomes = (body.Outcomes ?? [])
                 .Select(item => new OutcomeItem(item.Id, item.Status, item.ActualDurationMinutes, item.Reason))
                 .ToList();
-            var wins = (body.Wins ?? []).Select(item => new WinItem(item.Title)).ToList();
-            return Ok(await book.ReflectEveningAsync(
+            var wins = (body.Wins ?? []).Select(item => new WinItem(item.Title, item.LifeArea)).ToList();
+            var day = await book.ReflectEveningAsync(
                 user.Id,
                 body.Timezone,
                 body.Transcript,
                 outcomes,
                 wins,
-                cancellationToken));
+                body.DayId,
+                body.StorageKey,
+                body.Words,
+                cancellationToken);
+            return day is null ? NotFound() : Ok(day);
         }
         catch (ArgumentException ex)
         {
@@ -200,7 +204,10 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         string Timezone,
         string Transcript,
         IReadOnlyList<OutcomeDraft>? Outcomes,
-        IReadOnlyList<WinDraft>? Wins);
+        IReadOnlyList<WinDraft>? Wins,
+        Guid? DayId = null,
+        string? StorageKey = null,
+        IReadOnlyList<SpokenWord>? Words = null);
 
     public sealed record CommitmentDraft(
         string Title,
@@ -208,7 +215,7 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         int? PlannedStartMinute = null,
         string? LifeArea = null);
     public sealed record OutcomeDraft(Guid Id, string Status, int? ActualDurationMinutes, string? Reason);
-    public sealed record WinDraft(string Title);
+    public sealed record WinDraft(string Title, string? LifeArea = null);
     public sealed record RenameRequest(string Title);
     public sealed record MarkRequest(string Status);
 }

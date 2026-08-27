@@ -55,9 +55,14 @@ public static class DayPlanner
             return "HOME";
         }
 
-        if (ContainsAny(text, "gym", "run", "walk", "workout", "yoga", "health", "doctor"))
+        if (ContainsAny(text, "gym", "run", "walk", "workout", "yoga", "health", "doctor", "shower", "bath"))
         {
             return "HEALTH";
+        }
+
+        if (ContainsAny(text, "bible", "scripture", "pray", "church", "meditat"))
+        {
+            return "SPIRITUAL";
         }
 
         if (ContainsAny(text, "read", "study", "learn", "course", "class"))
@@ -70,12 +75,7 @@ public static class DayPlanner
             return "WORK";
         }
 
-        if (ContainsAny(text, "pray", "church", "meditat"))
-        {
-            return "SPIRITUAL";
-        }
-
-        if (ContainsAny(text, "call", "family", "friend", "date"))
+        if (ContainsAny(text, "call", "family", "friend", "date", "mom", "dad", "mother", "father"))
         {
             return "RELATIONSHIPS";
         }

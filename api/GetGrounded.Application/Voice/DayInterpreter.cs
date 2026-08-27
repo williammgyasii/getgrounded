@@ -52,16 +52,20 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         IReadOnlyList<CommitmentRecord> planned,
         CancellationToken cancellationToken = default)
     {
-        var raw = await model.CompleteJsonAsync(EveningSystem(planned), transcript, cancellationToken);
-        EveningPayload payload;
+        EveningPayload? payload = null;
         try
         {
-            payload = JsonSerializer.Deserialize<EveningPayload>(raw, Json)
-                ?? throw new InterpretException("Empty extract.");
+            var raw = SliceJson(await model.CompleteJsonAsync(EveningSystem(planned), transcript, cancellationToken));
+            payload = JsonSerializer.Deserialize<EveningPayload>(raw, Json);
         }
         catch (JsonException)
         {
-            throw new InterpretException("Unusable extract.");
+            payload = null;
+        }
+
+        if (payload is null)
+        {
+            return MissedNight(planned);
         }
 
         var known = planned.Select(item => item.Id).ToHashSet();
@@ -74,13 +78,14 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
                 continue;
             }
 
-            if (row.Status is null || !Statuses.Contains(row.Status))
+            var status = row.Status?.Trim().ToUpperInvariant();
+            if (status is null || !Statuses.Contains(status))
             {
                 continue;
             }
 
             seen.Add(id);
-            outcomes.Add(new OutcomeItem(id, row.Status, row.ActualDurationMinutes, row.Reason));
+            outcomes.Add(new OutcomeItem(id, status, row.ActualDurationMinutes, row.Reason));
         }
 
         foreach (var item in planned)
@@ -92,10 +97,15 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         }
 
         var wins = (payload.Wins ?? [])
-            .Select(row => new WinItem(row.Title ?? ""))
-            .Where(win => win.Title.Trim().Length > 0)
+            .Select(row =>
+            {
+                var title = Titles.Sentence(row.Title);
+                return new WinItem(title, ReadArea(row.LifeArea) ?? DayPlanner.GuessArea(title));
+            })
+            .Where(win => win.Title.Length > 0)
             .ToList();
-        return new EveningDraft(outcomes, wins);
+        var mirror = string.IsNullOrWhiteSpace(payload.Mirror) ? null : payload.Mirror.Trim();
+        return new EveningDraft(outcomes, wins, mirror);
     }
 
     private const string MorningSystem =
@@ -124,10 +134,42 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         return TimeOnly.TryParse(raw, out var time) ? time.Hour * 60 + time.Minute : null;
     }
 
-    private static string EveningSystem(IReadOnlyList<CommitmentRecord> planned)
+    private static EveningDraft MissedNight(IReadOnlyList<CommitmentRecord> planned) =>
+        new(planned.Select(item => new OutcomeItem(item.Id, "MISSED")).ToList(), [], null);
+
+    private static string SliceJson(string raw)
     {
-        var ids = string.Join(",", planned.Select(item => item.Id));
-        return $"Return JSON only. Outcome ids must be from: {ids}. Statuses: COMPLETED,PARTIAL,MISSED,RESCHEDULED,CANCELLED,BLOCKED. {{\"outcomes\":[],\"wins\":[]}}";
+        var text = raw.Trim();
+        if (text.StartsWith("```", StringComparison.Ordinal))
+        {
+            var start = text.IndexOf('{');
+            var end = text.LastIndexOf("```", StringComparison.Ordinal);
+            if (start >= 0 && end > start)
+            {
+                text = text[start..end].Trim();
+            }
+        }
+
+        var open = text.IndexOf('{');
+        var close = text.LastIndexOf('}');
+        return open >= 0 && close > open ? text[open..(close + 1)] : text;
+    }
+
+    private static string EveningSystem(IReadOnlyList<CommitmentRecord> items)
+    {
+        var labeled = string.Join("; ", items.Select(item => $"{item.Id}:{item.Title}"));
+        return $"You are a warm evening mirror, not a scorekeeper. Planned: {labeled}. Outcome ids must be from those ids. Statuses: COMPLETED,PARTIAL,MISSED,RESCHEDULED,CANCELLED,BLOCKED. Match a planned item only when they spoke about that same thing — do not swap titles or invent deeds (no push-ups if they did not say push-ups). wins MUST list every extra they named that was not planned — calls, showers, cooking, talks, errands — each as its own win. Never invent extras. lifeArea is WORK, LEARNING, HEALTH, SPIRITUAL, RELATIONSHIPS, FINANCIAL, HOME, or PERSONAL. mirror is 1-2 sentences using their words. Celebrate extras. Do not scold missed plans. Sentence case. {{\"outcomes\":[],\"wins\":[{{\"title\":\"\",\"lifeArea\":\"\"}}],\"mirror\":\"\"}}";
+    }
+
+    private static readonly HashSet<string> Areas =
+    [
+        "WORK", "LEARNING", "HEALTH", "SPIRITUAL", "RELATIONSHIPS", "FINANCIAL", "HOME", "PERSONAL"
+    ];
+
+    private static string? ReadArea(string? raw)
+    {
+        var area = raw?.Trim().ToUpperInvariant();
+        return area is not null && Areas.Contains(area) ? area : null;
     }
 
     private sealed record MorningPayload(string? Title, IReadOnlyList<MorningRow>? Commitments);
@@ -138,7 +180,7 @@ public sealed class DayInterpreter(ILanguageModel model) : IDayInterpreter
         int? PlannedStartMinute,
         string? LifeArea,
         float? Confidence);
-    private sealed record EveningPayload(IReadOnlyList<EveningRow>? Outcomes, IReadOnlyList<WinRow>? Wins);
+    private sealed record EveningPayload(IReadOnlyList<EveningRow>? Outcomes, IReadOnlyList<WinRow>? Wins, string? Mirror);
     private sealed record EveningRow(string? Id, string? Status, int? ActualDurationMinutes, string? Reason);
-    private sealed record WinRow(string? Title);
+    private sealed record WinRow(string? Title, string? LifeArea);
 }

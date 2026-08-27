@@ -98,8 +98,11 @@ internal static class BookSchema
               day_id UUID NOT NULL REFERENCES days(id) ON DELETE RESTRICT,
               title TEXT NOT NULL,
               source TEXT NOT NULL,
+              life_area TEXT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT now()
             );
+
+            ALTER TABLE wins ADD COLUMN IF NOT EXISTS life_area TEXT NULL;
 
             CREATE UNIQUE INDEX IF NOT EXISTS users_firebase_uid_living_uidx
               ON users (firebase_uid) WHERE deleted_at IS NULL;

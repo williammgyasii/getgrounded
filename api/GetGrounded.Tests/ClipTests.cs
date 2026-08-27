@@ -201,6 +201,38 @@ public class ClipTests
     }
 
     [Fact]
+    public async Task Extract_evening_uses_that_day_and_does_not_book()
+    {
+        var model = new StubLanguageModel("""{"outcomes":[],"wins":[{"title":"walked"}]}""");
+        using var factory = CreateFactory(new StubSpeechToText("x"), model);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Gym.",
+            title = "Gym day",
+            commitments = new[] { new { title = "Gym" } }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+        var extracted = await client.PostAsJsonAsync("/voice/extract", new
+        {
+            kind = "EVENING_REFLECTION",
+            transcript = "Walked instead.",
+            dayId = day!.Id
+        });
+        var night = await extracted.Content.ReadFromJsonAsync<EveningExtractBody>(Json);
+        var desk = await (await client.GetAsync("/days/today?timezone=UTC")).Content.ReadFromJsonAsync<DeskBody>(Json);
+
+        Assert.Equal(HttpStatusCode.OK, extracted.StatusCode);
+        Assert.Equal("MISSED", night!.Outcomes[0].Status);
+        Assert.Equal(day.Commitments[0].Id, night.Outcomes[0].Id);
+        Assert.Equal("Walked", night.Wins[0].Title);
+        Assert.Equal("PLANNED", desk!.Today!.Commitments[0].Status);
+    }
+
+    [Fact]
     public async Task Garbage_extract_is_bad_gateway()
     {
         using var factory = CreateFactory(
@@ -347,13 +379,16 @@ public class ClipTests
 
     private sealed record HearBody(string Transcript, string? StorageKey, IReadOnlyList<WordBody>? Words);
     private sealed record ExtractBody(string? Title, IReadOnlyList<ExtractItem> Commitments);
+    private sealed record EveningExtractBody(IReadOnlyList<EveningOutcomeBody> Outcomes, IReadOnlyList<WinDraftBody> Wins);
+    private sealed record EveningOutcomeBody(Guid Id, string Status);
+    private sealed record WinDraftBody(string Title);
     private sealed record ExtractItem(
         string Title,
         int? PlannedDurationMinutes,
         int? PlannedStartMinute,
         string? LifeArea);
     private sealed record DeskBody(int StreakDays, DayBody? Today);
-    private sealed record DayBody(IReadOnlyList<CommitmentBody> Commitments, IReadOnlyList<ClipPlayBody> Clips);
+    private sealed record DayBody(Guid Id, IReadOnlyList<CommitmentBody> Commitments, IReadOnlyList<ClipPlayBody> Clips);
     private sealed record ClipPlayBody(Guid Id, bool Playable, IReadOnlyList<WordBody>? Words);
     private sealed record WordBody(string Text, double Start, double End);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);

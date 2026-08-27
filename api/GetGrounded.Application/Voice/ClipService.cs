@@ -53,6 +53,25 @@ public sealed class ClipService(
         return draft;
     }
 
+    public async Task<EveningDraft> ExtractEveningAsync(
+        Guid userId,
+        Guid dayId,
+        string transcript,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+        {
+            throw new ArgumentException("Transcript is required.", nameof(transcript));
+        }
+
+        var day = await book.GetDayByIdAsync(userId, dayId, cancellationToken)
+            ?? throw new ArgumentException("Day is required.", nameof(dayId));
+        _log.LogInformation("extract evening started chars={Chars} items={Items}", transcript.Length, day.Commitments.Count);
+        var draft = await interpreter.ReadEveningAsync(transcript, day.Commitments, cancellationToken);
+        _log.LogInformation("extract evening ok outcomes={Outcomes} wins={Wins}", draft.Outcomes.Count, draft.Wins.Count);
+        return draft;
+    }
+
     public async Task<DeskRecord> CaptureAsync(
         Guid userId,
         string kind,
@@ -87,7 +106,7 @@ public sealed class ClipService(
             heard.Transcript,
             draft.Outcomes,
             draft.Wins,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         return await book.GetDeskAsync(userId, timezone, cancellationToken);
     }

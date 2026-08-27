@@ -22,11 +22,18 @@ public interface IBookStore
         string transcript,
         IReadOnlyList<OutcomeItem> outcomes,
         IReadOnlyList<WinItem> wins,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default);
 
     Task<DayRecord?> GetDayAsync(
         Guid userId,
         DateOnly localDate,
+        CancellationToken cancellationToken = default);
+
+    Task<DayRecord?> GetDayByIdAsync(
+        Guid userId,
+        Guid dayId,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DayRecord>> GetDaysAsync(

@@ -86,6 +86,57 @@ public class DayInterpreterTests
         Assert.Equal("Cleaned", draft.Wins[0].Title);
     }
 
+    [Fact]
+    public async Task Evening_reads_json_wrapped_in_fences()
+    {
+        var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var model = new StubLanguageModel(
+            "```json\n{\"outcomes\":[{\"id\":\"11111111-1111-1111-1111-111111111111\",\"status\":\"completed\"}],\"wins\":[]}\n```");
+        var interpreter = new DayInterpreter(model);
+
+        var draft = await interpreter.ReadEveningAsync(
+            "gym yes",
+            [new CommitmentRecord(id, "Gym", "PLANNED", null, null)]);
+
+        Assert.Equal("COMPLETED", draft.Outcomes[0].Status);
+    }
+
+    [Fact]
+    public async Task Evening_garbage_still_returns_missed_planned()
+    {
+        var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var interpreter = new DayInterpreter(new StubLanguageModel("not-json"));
+
+        var draft = await interpreter.ReadEveningAsync(
+            "messy night",
+            [new CommitmentRecord(id, "Gym", "PLANNED", null, null)]);
+
+        Assert.Single(draft.Outcomes);
+        Assert.Equal(id, draft.Outcomes[0].Id);
+        Assert.Equal("MISSED", draft.Outcomes[0].Status);
+        Assert.Empty(draft.Wins);
+    }
+
+    [Fact]
+    public async Task Evening_keeps_unplanned_wins_and_a_mirror()
+    {
+        var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var model = new StubLanguageModel(
+            """{"outcomes":[{"id":"11111111-1111-1111-1111-111111111111","status":"MISSED"}],"wins":[{"title":"called my friends","lifeArea":"RELATIONSHIPS"},{"title":"took a shower"}],"mirror":"Bible waited. You still called your friends. That counts."}""");
+        var interpreter = new DayInterpreter(model);
+
+        var draft = await interpreter.ReadEveningAsync(
+            "I did not read my Bible. I called my friends. I took a shower.",
+            [new CommitmentRecord(id, "Read my Bible", "PLANNED", null, null)]);
+
+        Assert.Equal("MISSED", draft.Outcomes[0].Status);
+        Assert.Equal("Called my friends", draft.Wins[0].Title);
+        Assert.Equal("RELATIONSHIPS", draft.Wins[0].LifeArea);
+        Assert.Equal("Took a shower", draft.Wins[1].Title);
+        Assert.Equal("HEALTH", draft.Wins[1].LifeArea);
+        Assert.Contains("called your friends", draft.Mirror, StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class StubLanguageModel(string json) : ILanguageModel
     {
         public Task<string> CompleteJsonAsync(string system, string user, CancellationToken cancellationToken)

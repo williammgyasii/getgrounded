@@ -92,6 +92,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         string transcript,
         IReadOnlyList<OutcomeItem> outcomes,
         IReadOnlyList<WinItem> wins,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
@@ -106,7 +108,9 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             dayId,
             "EVENING_REFLECTION",
             transcript,
-            cancellationToken);
+            cancellationToken,
+            storageKey,
+            words);
 
         if (outcomes.Count > 0)
         {
@@ -152,13 +156,14 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
             var userIds = Enumerable.Repeat(userId, wins.Count).ToArray();
             var dayIds = Enumerable.Repeat(dayId, wins.Count).ToArray();
             var titles = wins.Select(item => item.Title).ToArray();
+            var areas = wins.Select(item => (string?)item.LifeArea).ToArray();
 
             await using var insert = new NpgsqlCommand(
                 """
-                INSERT INTO wins (id, user_id, day_id, title, source)
-                SELECT u.id, u.user_id, u.day_id, u.title, 'EVENING_EXTRACT'
-                FROM UNNEST($1::uuid[], $2::uuid[], $3::uuid[], $4::text[])
-                  AS u(id, user_id, day_id, title)
+                INSERT INTO wins (id, user_id, day_id, title, source, life_area)
+                SELECT u.id, u.user_id, u.day_id, u.title, 'EVENING_EXTRACT', u.life_area
+                FROM UNNEST($1::uuid[], $2::uuid[], $3::uuid[], $4::text[], $5::text[])
+                  AS u(id, user_id, day_id, title, life_area)
                 """,
                 connection, tx)
             {
@@ -167,7 +172,8 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
                     new NpgsqlParameter { Value = ids },
                     new NpgsqlParameter { Value = userIds },
                     new NpgsqlParameter { Value = dayIds },
-                    new NpgsqlParameter { Value = titles }
+                    new NpgsqlParameter { Value = titles },
+                    new NpgsqlParameter { Value = areas }
                 }
             };
             await insert.ExecuteNonQueryAsync(cancellationToken);
@@ -183,6 +189,14 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         CancellationToken cancellationToken = default)
     {
         return WithConnection(connection => LoadDayAsync(connection, userId, localDate, cancellationToken), cancellationToken);
+    }
+
+    public Task<DayRecord?> GetDayByIdAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default)
+    {
+        return WithConnection(connection => LoadDayByIdAsync(connection, userId, dayId, cancellationToken), cancellationToken);
     }
 
     public async Task<IReadOnlyList<DayRecord>> GetDaysAsync(
@@ -586,7 +600,7 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         var wins = new List<WinRecord>();
         await using (var list = new NpgsqlCommand(
             """
-            SELECT id, title
+            SELECT id, title, life_area
             FROM wins
             WHERE user_id = $1 AND day_id = $2
             ORDER BY created_at
@@ -603,7 +617,10 @@ public sealed class PostgresBookStore(IConfiguration configuration) : IBookStore
         {
             while (await reader.ReadAsync(cancellationToken))
             {
-                wins.Add(new WinRecord(reader.GetGuid(0), reader.GetString(1)));
+                wins.Add(new WinRecord(
+                    reader.GetGuid(0),
+                    reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
             }
         }
 

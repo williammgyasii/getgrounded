@@ -225,6 +225,28 @@ public class BookTests
     }
 
     [Fact]
+    public async Task Evening_can_close_a_named_day()
+    {
+        var store = new MemoryBookStore();
+        var book = new BookService(store, new TestClock(NoonUtc));
+        var morning = await book.PlanMorningAsync(
+            Person, "UTC", "Gym.", [new PlannedItem("Gym")], "Gym day");
+
+        var evening = await book.ReflectEveningAsync(
+            Person,
+            "UTC",
+            "Did gym.",
+            [new OutcomeItem(morning.Commitments[0].Id, "COMPLETED")],
+            [],
+            morning.Id);
+
+        Assert.NotNull(evening);
+        Assert.Equal(morning.Id, evening.Id);
+        Assert.Equal("COMPLETED", evening.Commitments[0].Status);
+        Assert.Contains(evening.Clips, clip => clip.Kind == "EVENING_REFLECTION");
+    }
+
+    [Fact]
     public async Task History_returns_the_spoken_day()
     {
         var book = new BookService(new MemoryBookStore(), new TestClock(NoonUtc));

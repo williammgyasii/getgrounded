@@ -68,9 +68,14 @@ public sealed class VertexLanguageModel(
 
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         var parsed = JsonSerializer.Deserialize<GenerateResponse>(body, Json);
-        var text = parsed?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+        var parts = parsed?.Candidates?.FirstOrDefault()?.Content?.Parts ?? [];
+        var text = parts
+            .Where(part => part.Thought != true && !string.IsNullOrWhiteSpace(part.Text))
+            .Select(part => part.Text)
+            .LastOrDefault();
         if (string.IsNullOrWhiteSpace(text))
         {
+            _log.LogWarning("model empty parts={Parts}", parts.Count);
             throw new InterpretException("Empty model.");
         }
 
@@ -80,5 +85,5 @@ public sealed class VertexLanguageModel(
     private sealed record GenerateResponse(IReadOnlyList<Candidate>? Candidates);
     private sealed record Candidate(ContentBody? Content);
     private sealed record ContentBody(IReadOnlyList<PartBody>? Parts);
-    private sealed record PartBody(string? Text);
+    private sealed record PartBody(string? Text, bool? Thought);
 }

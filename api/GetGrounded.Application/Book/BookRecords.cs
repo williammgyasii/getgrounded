@@ -14,7 +14,7 @@ public sealed record OutcomeItem(
     int? ActualDurationMinutes = null,
     string? Reason = null);
 
-public sealed record WinItem(string Title);
+public sealed record WinItem(string Title, string? LifeArea = null);
 
 public sealed record CommitmentRecord(
     Guid Id,
@@ -26,7 +26,7 @@ public sealed record CommitmentRecord(
     string? LifeArea = null,
     DateTimeOffset? CreatedAt = null);
 
-public sealed record WinRecord(Guid Id, string Title);
+public sealed record WinRecord(Guid Id, string Title, string? LifeArea = null);
 
 public sealed record ClipRecord(
     Guid Id,

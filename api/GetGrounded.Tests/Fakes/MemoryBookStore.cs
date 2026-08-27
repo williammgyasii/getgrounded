@@ -58,12 +58,20 @@ public sealed class MemoryBookStore : IBookStore
         string transcript,
         IReadOnlyList<OutcomeItem> outcomes,
         IReadOnlyList<WinItem> wins,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default)
     {
         var day = GetOrCreate(userId, localDate, timezone);
         var clipId = Guid.CreateVersion7();
-        _clipKeys[clipId] = null;
-        day.Clips.Add(new ClipRecord(clipId, "EVENING_REFLECTION", transcript, DateTimeOffset.UtcNow));
+        _clipKeys[clipId] = storageKey;
+        day.Clips.Add(new ClipRecord(
+            clipId,
+            "EVENING_REFLECTION",
+            transcript,
+            DateTimeOffset.UtcNow,
+            storageKey is not null,
+            words));
         foreach (var outcome in outcomes)
         {
             var index = day.Commitments.FindIndex(item => item.Id == outcome.Id);
@@ -82,7 +90,7 @@ public sealed class MemoryBookStore : IBookStore
 
         foreach (var win in wins)
         {
-            day.Wins.Add(new WinRecord(Guid.CreateVersion7(), win.Title));
+            day.Wins.Add(new WinRecord(Guid.CreateVersion7(), win.Title, win.LifeArea));
         }
 
         return Task.FromResult<DayRecord?>(day.ToRecord());
@@ -94,6 +102,15 @@ public sealed class MemoryBookStore : IBookStore
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult(_days.TryGetValue((userId, localDate), out var day) ? day.ToRecord() : null);
+    }
+
+    public Task<DayRecord?> GetDayByIdAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default)
+    {
+        var day = Find(userId, dayId);
+        return Task.FromResult(day?.ToRecord());
     }
 
     public Task<IReadOnlyList<DayRecord>> GetDaysAsync(

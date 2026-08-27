@@ -64,6 +64,9 @@ public sealed class BookService(IBookStore book, IClock clock, IAudioStore? audi
         string transcript,
         IReadOnlyList<OutcomeItem> outcomes,
         IReadOnlyList<WinItem> wins,
+        Guid? dayId = null,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
         CancellationToken cancellationToken = default)
     {
         RequireSpeech(transcript);
@@ -75,9 +78,24 @@ public sealed class BookService(IBookStore book, IClock clock, IAudioStore? audi
             }
         }
 
-        var localDate = LocalDay.From(timezone, clock.UtcNow);
+        DateOnly localDate;
+        if (dayId is Guid id)
+        {
+            var existing = await book.GetDayByIdAsync(userId, id, cancellationToken);
+            if (existing is null)
+            {
+                return null;
+            }
+
+            localDate = existing.LocalDate;
+        }
+        else
+        {
+            localDate = LocalDay.From(timezone, clock.UtcNow);
+        }
+
         var cleanedWins = wins
-            .Select(win => win with { Title = win.Title.Trim() })
+            .Select(win => win with { Title = Titles.Sentence(win.Title) })
             .Where(win => win.Title.Length > 0)
             .ToList();
 
@@ -88,8 +106,16 @@ public sealed class BookService(IBookStore book, IClock clock, IAudioStore? audi
             transcript,
             outcomes,
             cleanedWins,
+            storageKey,
+            words,
             cancellationToken);
     }
+
+    public Task<DayRecord?> GetDayByIdAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default) =>
+        book.GetDayByIdAsync(userId, dayId, cancellationToken);
 
     public async Task<DeskRecord> GetDeskAsync(
         Guid userId,
