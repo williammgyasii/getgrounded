@@ -6,6 +6,7 @@ import {
   type DayRecord,
   type DeskRecord,
   type EveningDraft,
+  type MiddayDraft,
   type MorningDraft,
   type ReviewRecord,
   type SpokenWord,
@@ -119,6 +120,57 @@ export const groundedApi = createApi({
       },
       invalidatesTags: ['Desk', 'History', 'Review'],
     }),
+    updateMidday: build.mutation<
+      DayRecord,
+      {
+        timezone: string;
+        transcript: string;
+        dayId: string;
+        storageKey?: string | null;
+        words?: SpokenWord[] | null;
+        add: {
+          title: string;
+          plannedDurationMinutes?: number | null;
+          plannedStartMinute?: number | null;
+          lifeArea?: string | null;
+        }[];
+        outcomes: { id: string; status: string }[];
+        extras: { title: string; lifeArea?: string | null }[];
+      }
+    >({
+      query: ({ timezone, transcript, dayId, storageKey, words, add, outcomes, extras }) => ({
+        url: '/days/midday',
+        method: 'POST',
+        body: {
+          timezone,
+          transcript,
+          dayId,
+          storageKey,
+          words,
+          add: add
+            .map((item) => ({
+              title: item.title.trim(),
+              plannedDurationMinutes: item.plannedDurationMinutes ?? null,
+              plannedStartMinute: item.plannedStartMinute ?? null,
+              lifeArea: item.lifeArea ?? null,
+            }))
+            .filter((item) => item.title.length > 0),
+          outcomes,
+          extras: extras
+            .map((item) => ({ title: item.title.trim(), lifeArea: item.lifeArea ?? null }))
+            .filter((item) => item.title.length > 0),
+        },
+      }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          patchBook(dispatch, (day) => (day.id === data.id ? data : day));
+        } catch {
+          // Invalidate below will refetch.
+        }
+      },
+      invalidatesTags: ['Desk', 'History', 'Review'],
+    }),
     hearClip: build.mutation<
       { transcript: string; storageKey?: string; words?: SpokenWord[] },
       { uri: string }
@@ -151,6 +203,13 @@ export const groundedApi = createApi({
         url: '/voice/extract',
         method: 'POST',
         body: { kind: 'EVENING_REFLECTION', transcript, dayId },
+      }),
+    }),
+    extractMidday: build.mutation<MiddayDraft, { transcript: string; dayId: string }>({
+      query: ({ transcript, dayId }) => ({
+        url: '/voice/extract',
+        method: 'POST',
+        body: { kind: 'MIDDAY_UPDATE', transcript, dayId },
       }),
     }),
     renameDay: build.mutation<DayRecord, { id: string; title: string }>({
@@ -272,10 +331,12 @@ export const {
   useGetReviewQuery,
   usePlanMorningMutation,
   useReflectEveningMutation,
+  useUpdateMiddayMutation,
   useHearClipMutation,
   useLazyGetClipQuery,
   useExtractMorningMutation,
   useExtractEveningMutation,
+  useExtractMiddayMutation,
   usePostClipMutation,
   useRenameDayMutation,
   useRemoveDayMutation,

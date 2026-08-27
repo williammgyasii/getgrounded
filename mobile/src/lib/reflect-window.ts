@@ -82,6 +82,10 @@ export function hasMorning(day: DayRecord): boolean {
   );
 }
 
+export function canUpdateDay(day: DayRecord): boolean {
+  return hasMorning(day) && !hasEvening(day);
+}
+
 export function canRecoverDay(day: DayRecord, today = localDateString()): boolean {
   if (!hasMorning(day) || hasEvening(day)) {
     return false;

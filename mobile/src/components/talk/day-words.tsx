@@ -24,6 +24,10 @@ function isEvening(take: WordTake) {
   return take.kind === 'EVENING_REFLECTION';
 }
 
+function isMidday(take: WordTake) {
+  return take.kind === 'MIDDAY_UPDATE';
+}
+
 export function DayWords({
   open,
   takes,
@@ -44,7 +48,11 @@ export function DayWords({
   const [duration, setDuration] = useState(0);
   const [fullTake, setFullTake] = useState<WordTake | null>(null);
 
-  const morning = useMemo(() => takes.filter((take) => !isEvening(take)), [takes]);
+  const morning = useMemo(
+    () => takes.filter((take) => !isEvening(take) && !isMidday(take)),
+    [takes],
+  );
+  const midday = useMemo(() => takes.filter(isMidday), [takes]);
   const evening = useMemo(() => takes.filter(isEvening), [takes]);
 
   useEffect(() => {
@@ -229,6 +237,12 @@ export function DayWords({
                 <View style={styles.section}>
                   <ThemedText style={styles.sectionTitle}>Morning</ThemedText>
                   {morning.map((take, index) => renderTake(take, index, 'Take'))}
+                </View>
+              ) : null}
+              {midday.length > 0 ? (
+                <View style={styles.section}>
+                  <ThemedText style={styles.sectionTitle}>Midday</ThemedText>
+                  {midday.map((take, index) => renderTake(take, index, 'Midday'))}
                 </View>
               ) : null}
               {evening.length > 0 ? (

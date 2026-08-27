@@ -13,9 +13,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { AddTakeSheet } from '@/components/talk/add-take-sheet';
 import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { EveningSheet } from '@/components/talk/evening-sheet';
+import { MiddaySheet } from '@/components/talk/midday-sheet';
 import { HappenedCard } from '@/components/talk/happened-card';
 import { PageWait } from '@/components/talk/page-wait';
 import { ReflectCue } from '@/components/talk/reflect-cue';
@@ -31,7 +31,7 @@ import { minutesPhrase } from '@/lib/clock';
 import { loadWords } from '@/lib/day-notes';
 import { longDayLabel, takesOnDay } from '@/lib/day-tasks';
 import { useReflectOpen, useReflectToday } from '@/lib/reflect-settings';
-import { canRecoverDay, hasEvening } from '@/lib/reflect-window';
+import { canRecoverDay, canUpdateDay, hasEvening } from '@/lib/reflect-window';
 import {
   useGetDeskQuery,
   useGetHistoryQuery,
@@ -102,16 +102,39 @@ export default function DayScreen() {
   const done = items.filter((item) => item.status?.toUpperCase() === 'COMPLETED').length;
   const totalMinutes = items.reduce((sum, item) => sum + (item.plannedDurationMinutes ?? 0), 0);
   let morningIndex = 0;
+  let middayIndex = 0;
   const clips = (day?.clips ?? [])
     .filter((clip) => clip.transcript.trim().length > 0)
     .map((clip) => {
       const evening = clip.kind === 'EVENING_REFLECTION';
-      morningIndex += evening ? 0 : 1;
+      const midday = clip.kind === 'MIDDAY_UPDATE';
+      if (evening) {
+        return {
+          id: clip.id,
+          transcript: clip.transcript,
+          kind: clip.kind,
+          label: 'Evening',
+          playable: clip.playable === true,
+          words: clip.words,
+        };
+      }
+      if (midday) {
+        middayIndex += 1;
+        return {
+          id: clip.id,
+          transcript: clip.transcript,
+          kind: clip.kind,
+          label: `Midday ${middayIndex}`,
+          playable: clip.playable === true,
+          words: clip.words,
+        };
+      }
+      morningIndex += 1;
       return {
         id: clip.id,
         transcript: clip.transcript,
         kind: clip.kind,
-        label: evening ? 'Evening' : `Morning ${morningIndex}`,
+        label: `Morning ${morningIndex}`,
         playable: clip.playable === true,
         words: clip.words,
       };
@@ -222,7 +245,7 @@ export default function DayScreen() {
             style={styles.menuItem}>
             <ThemedText>Recordings</ThemedText>
           </Pressable>
-          {closed ? null : (
+          {day && canUpdateDay(day) ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => {
@@ -230,9 +253,9 @@ export default function DayScreen() {
                 setAddOpen(true);
               }}
               style={styles.menuItem}>
-              <ThemedText>Add another take</ThemedText>
+              <ThemedText>Update the day</ThemedText>
             </Pressable>
-          )}
+          ) : null}
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -307,7 +330,7 @@ export default function DayScreen() {
                 />
               </View>
             ))}
-            {closed && (day.wins?.length ?? 0) > 0 ? (
+            {(day.wins?.length ?? 0) > 0 ? (
               <View style={styles.take}>
                 <ThemedText style={styles.happenedTitle}>Also happened</ThemedText>
                 {day.wins.map((win) => (
@@ -337,9 +360,7 @@ export default function DayScreen() {
         onConfirm={() => void confirmDeleteDay()}
       />
       <DayWords open={wordsOpen} takes={transcripts} onClose={() => setWordsOpen(false)} />
-      {day ? (
-        <AddTakeSheet open={addOpen} dayDate={day.localDate} onClose={() => setAddOpen(false)} />
-      ) : null}
+      <MiddaySheet day={addOpen && day && canUpdateDay(day) ? day : null} onClose={() => setAddOpen(false)} />
       <EveningSheet day={reflectOpen && day ? day : null} onClose={() => setReflectOpen(false)} />
     </ThemedView>
   );

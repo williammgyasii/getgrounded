@@ -66,6 +66,22 @@ export type EveningDraft = {
   mirror?: string | null;
 };
 
+export type MiddayDraft = {
+  add: {
+    title: string;
+    plannedDurationMinutes?: number | null;
+    plannedStartMinute?: number | null;
+    lifeArea?: string | null;
+  }[];
+  outcomes: {
+    id: string;
+    status: string;
+    actualDurationMinutes?: number | null;
+    reason?: string | null;
+  }[];
+  extras: { title: string; lifeArea?: string | null }[];
+};
+
 export type DeskRecord = {
   localDate: string;
   streakDays: number;
