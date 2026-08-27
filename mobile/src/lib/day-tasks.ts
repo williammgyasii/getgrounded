@@ -21,6 +21,25 @@ export type TaskTake = {
   items: AgendaTask[];
 };
 
+export function statusLabel(status: string | null | undefined): string {
+  switch ((status ?? '').toUpperCase()) {
+    case 'COMPLETED':
+      return 'Done';
+    case 'PARTIAL':
+      return 'Partial';
+    case 'MISSED':
+      return 'Missed';
+    case 'RESCHEDULED':
+      return 'Moved';
+    case 'CANCELLED':
+      return 'Cancelled';
+    case 'BLOCKED':
+      return 'Blocked';
+    default:
+      return '';
+  }
+}
+
 export function scheduledTasks(commitments: CommitmentRecord[], spokenMinute = 8 * 60): AgendaTask[] {
   const missing = commitments.some((item) => item.plannedStartMinute == null);
   const source = missing

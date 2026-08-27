@@ -3,10 +3,21 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AddTakeSheet } from '@/components/talk/add-take-sheet';
 import { DangerConfirm } from '@/components/talk/danger-confirm';
+import { EveningSheet } from '@/components/talk/evening-sheet';
+import { HappenedCard } from '@/components/talk/happened-card';
+import { ReflectCue } from '@/components/talk/reflect-cue';
 import { DayWords, type WordTake } from '@/components/talk/day-words';
 import { RoundProgress } from '@/components/talk/round-progress';
 import { TaskRows } from '@/components/talk/task-rows';
@@ -18,6 +29,8 @@ import { type DayRecord, deviceTimezone } from '@/lib/api';
 import { minutesPhrase } from '@/lib/clock';
 import { loadWords } from '@/lib/day-notes';
 import { longDayLabel, takesOnDay } from '@/lib/day-tasks';
+import { useReflectOpen, useReflectToday } from '@/lib/reflect-settings';
+import { canRecoverDay, hasEvening } from '@/lib/reflect-window';
 import {
   useGetDeskQuery,
   useGetHistoryQuery,
@@ -54,6 +67,11 @@ export default function DayScreen() {
   const [removeDay] = useRemoveDayMutation();
   const [markCommitment] = useMarkCommitmentMutation();
   const [removeCommitment] = useRemoveCommitmentMutation();
+  const today = useReflectToday();
+  const inWindow = useReflectOpen();
+  const canReflect = day != null && canRecoverDay(day, today);
+  const closed = day != null && hasEvening(day);
+  const [reflectOpen, setReflectOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -81,15 +99,21 @@ export default function DayScreen() {
   const items = takes.flatMap((take) => take.items);
   const done = items.filter((item) => item.status?.toUpperCase() === 'COMPLETED').length;
   const totalMinutes = items.reduce((sum, item) => sum + (item.plannedDurationMinutes ?? 0), 0);
+  let morningIndex = 0;
   const clips = (day?.clips ?? [])
     .filter((clip) => clip.transcript.trim().length > 0)
-    .map((clip, index) => ({
-      id: clip.id,
-      transcript: clip.transcript,
-      label: clip.kind === 'EVENING_REFLECTION' ? 'Evening' : `Take ${index + 1}`,
-      playable: clip.playable === true,
-      words: clip.words,
-    }));
+    .map((clip) => {
+      const evening = clip.kind === 'EVENING_REFLECTION';
+      morningIndex += evening ? 0 : 1;
+      return {
+        id: clip.id,
+        transcript: clip.transcript,
+        kind: clip.kind,
+        label: evening ? 'Evening' : `Morning ${morningIndex}`,
+        playable: clip.playable === true,
+        words: clip.words,
+      };
+    });
   const transcripts = useMemo(
     () => (clips.length > 0 ? clips : savedWords),
     [clips, savedWords],
@@ -196,15 +220,17 @@ export default function DayScreen() {
             style={styles.menuItem}>
             <ThemedText>Recordings</ThemedText>
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setMenuOpen(false);
-              setAddOpen(true);
-            }}
-            style={styles.menuItem}>
-            <ThemedText>Add another take</ThemedText>
-          </Pressable>
+          {closed ? null : (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setMenuOpen(false);
+                setAddOpen(true);
+              }}
+              style={styles.menuItem}>
+              <ThemedText>Add another take</ThemedText>
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -229,12 +255,29 @@ export default function DayScreen() {
                   {done} of {items.length} done
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {minutesPhrase(totalMinutes)
-                    ? `${minutesPhrase(totalMinutes)} to finish`
-                    : 'No time on these tasks yet'}
+                  {closed
+                    ? 'This night is closed.'
+                    : minutesPhrase(totalMinutes)
+                      ? `${minutesPhrase(totalMinutes)} to finish`
+                      : 'No time on these tasks yet'}
                 </ThemedText>
               </View>
+              {canReflect ? (
+                <ReflectMic pulsing={inWindow} onPress={() => setReflectOpen(true)} />
+              ) : null}
             </View>
+            {closed ? (
+              <View style={[styles.closed, { backgroundColor: theme.accent }]}>
+                <ThemedText type="smallBold" style={styles.closedTitle}>
+                  Night saved
+                </ThemedText>
+                <ThemedText type="small" style={styles.closedTitle}>
+                  See you in the morning.
+                </ThemedText>
+              </View>
+            ) : (
+              <ReflectCue visible={inWindow && canReflect} onPress={() => setReflectOpen(true)} />
+            )}
             {takes.map((take) => (
               <View key={take.key} style={styles.take}>
                 {take.label ? (
@@ -244,16 +287,30 @@ export default function DayScreen() {
                 ) : null}
                 <TaskRows
                   items={take.items}
-                  onToggle={(item) =>
-                    void markCommitment({
-                      id: item.key,
-                      status: item.status?.toUpperCase() === 'COMPLETED' ? 'PLANNED' : 'COMPLETED',
-                    })
+                  onToggle={
+                    closed
+                      ? undefined
+                      : (item) =>
+                          void markCommitment({
+                            id: item.key,
+                            status: item.status?.toUpperCase() === 'COMPLETED' ? 'PLANNED' : 'COMPLETED',
+                          })
                   }
-                  onRemove={(item) => void removeCommitment(item.key)}
+                  onRemove={closed ? undefined : (item) => void removeCommitment(item.key)}
                 />
               </View>
             ))}
+            {closed && (day.wins?.length ?? 0) > 0 ? (
+              <View style={styles.take}>
+                <ThemedText style={styles.happenedTitle}>Also happened</ThemedText>
+                {day.wins.map((win) => (
+                  <HappenedCard
+                    key={win.id}
+                    win={{ title: win.title, lifeArea: win.lifeArea }}
+                  />
+                ))}
+              </View>
+            ) : null}
           </Animated.View>
         )}
       </ScrollView>
@@ -276,7 +333,57 @@ export default function DayScreen() {
       {day ? (
         <AddTakeSheet open={addOpen} dayDate={day.localDate} onClose={() => setAddOpen(false)} />
       ) : null}
+      <EveningSheet day={reflectOpen && day ? day : null} onClose={() => setReflectOpen(false)} />
     </ThemedView>
+  );
+}
+
+function ReflectMic({ pulsing, onPress }: { pulsing: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (pulsing) {
+      scale.value = withRepeat(
+        withSequence(withTiming(1.08, { duration: 700 }), withTiming(1, { duration: 700 })),
+        -1,
+        true,
+      );
+      return;
+    }
+    scale.value = withSpring(1);
+  }, [pulsing, scale]);
+
+  const pulse = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={pulse}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Reflect on this day"
+        onPressIn={() => {
+          scale.value = withSpring(0.92);
+        }}
+        onPressOut={() => {
+          scale.value = pulsing
+            ? withRepeat(
+                withSequence(withTiming(1.08, { duration: 700 }), withTiming(1, { duration: 700 })),
+                -1,
+                true,
+              )
+            : withSpring(1);
+        }}
+        onPress={onPress}
+        style={[styles.mic, { backgroundColor: theme.primary, shadowColor: theme.text }]}>
+        <SymbolView
+          name={{ ios: 'mic.fill', android: 'mic', web: 'mic' }}
+          size={22}
+          tintColor={theme.primaryOn}
+        />
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -349,7 +456,34 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  mic: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
   take: {
     gap: Spacing.two,
+  },
+  happenedTitle: {
+    fontFamily: FontFamily.semibold,
+    fontSize: 18,
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: Spacing.one,
+  },
+  closed: {
+    borderRadius: 12,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 12,
+    gap: 2,
+  },
+  closedTitle: {
+    color: '#FFFFFF',
   },
 });

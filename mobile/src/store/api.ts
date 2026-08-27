@@ -5,6 +5,7 @@ import {
   deviceTimezone,
   type DayRecord,
   type DeskRecord,
+  type EveningDraft,
   type MorningDraft,
   type SpokenWord,
 } from '@/lib/api';
@@ -81,20 +82,36 @@ export const groundedApi = createApi({
       {
         timezone: string;
         transcript: string;
+        dayId: string;
+        storageKey?: string | null;
+        words?: SpokenWord[] | null;
         outcomes: { id: string; status: string }[];
-        wins: string[];
+        wins: { title: string; lifeArea?: string | null }[];
       }
     >({
-      query: ({ timezone, transcript, outcomes, wins }) => ({
+      query: ({ timezone, transcript, dayId, storageKey, words, outcomes, wins }) => ({
         url: '/days/evening',
         method: 'POST',
         body: {
           timezone,
           transcript,
+          dayId,
+          storageKey,
+          words,
           outcomes,
-          wins: wins.map((title) => ({ title })),
+          wins: wins
+            .map((win) => ({ title: win.title.trim(), lifeArea: win.lifeArea ?? null }))
+            .filter((win) => win.title.length > 0),
         },
       }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          patchBook(dispatch, (day) => (day.id === data.id ? data : day));
+        } catch {
+          // Invalidate below will refetch.
+        }
+      },
       invalidatesTags: ['Desk', 'History'],
     }),
     hearClip: build.mutation<
@@ -122,6 +139,13 @@ export const groundedApi = createApi({
         url: '/voice/extract',
         method: 'POST',
         body: { kind: 'MORNING_PLAN', transcript, timezone, spokenAt },
+      }),
+    }),
+    extractEvening: build.mutation<EveningDraft, { transcript: string; dayId: string }>({
+      query: ({ transcript, dayId }) => ({
+        url: '/voice/extract',
+        method: 'POST',
+        body: { kind: 'EVENING_REFLECTION', transcript, dayId },
       }),
     }),
     renameDay: build.mutation<DayRecord, { id: string; title: string }>({
@@ -245,6 +269,7 @@ export const {
   useHearClipMutation,
   useLazyGetClipQuery,
   useExtractMorningMutation,
+  useExtractEveningMutation,
   usePostClipMutation,
   useRenameDayMutation,
   useRemoveDayMutation,

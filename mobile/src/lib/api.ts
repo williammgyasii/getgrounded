@@ -16,6 +16,7 @@ export type CommitmentRecord = {
 export type WinRecord = {
   id: string;
   title: string;
+  lifeArea?: string | null;
 };
 
 export type SpokenWord = {
@@ -52,6 +53,17 @@ export type MorningDraft = {
     plannedStartMinute?: number | null;
     lifeArea?: string | null;
   }[];
+};
+
+export type EveningDraft = {
+  outcomes: {
+    id: string;
+    status: string;
+    actualDurationMinutes?: number | null;
+    reason?: string | null;
+  }[];
+  wins: { title: string; lifeArea?: string | null }[];
+  mirror?: string | null;
 };
 
 export type DeskRecord = {

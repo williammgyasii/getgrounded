@@ -31,6 +31,7 @@ export function PlanMic({
   recording,
   durationMillis = 0,
   metering,
+  centered,
   onStart,
   onSend,
   onDiscard,
@@ -38,6 +39,7 @@ export function PlanMic({
   recording: boolean;
   durationMillis?: number;
   metering?: number;
+  centered?: boolean;
   onStart: () => void;
   onSend: () => void;
   onDiscard: () => void;
@@ -95,7 +97,7 @@ export function PlanMic({
 
   return (
     <View
-      style={styles.track}
+      style={[styles.track, centered && styles.trackCenter]}
       onLayout={(event) => setTrackW(event.nativeEvent.layout.width)}>
       <Animated.View
         style={[
@@ -172,6 +174,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'flex-start',
     minHeight: MicSize,
+  },
+  trackCenter: {
+    alignItems: 'center',
   },
   pill: {
     minHeight: MicSize,

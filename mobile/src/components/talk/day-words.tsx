@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
@@ -15,9 +15,14 @@ export type WordTake = {
   id: string;
   transcript: string;
   label?: string;
+  kind?: string;
   playable?: boolean;
   words?: SpokenWord[];
 };
+
+function isEvening(take: WordTake) {
+  return take.kind === 'EVENING_REFLECTION';
+}
 
 export function DayWords({
   open,
@@ -37,11 +42,15 @@ export function DayWords({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
+  const [fullTake, setFullTake] = useState<WordTake | null>(null);
+
+  const morning = useMemo(() => takes.filter((take) => !isEvening(take)), [takes]);
+  const evening = useMemo(() => takes.filter(isEvening), [takes]);
 
   useEffect(() => {
     if (!open) {
       stopPlayer();
+      setFullTake(null);
     }
     return () => {
       stopPlayer();
@@ -118,6 +127,81 @@ export function DayWords({
     }
   }
 
+  function renderTake(take: WordTake, index: number, fallback: string) {
+    const playing = playingId === take.id;
+    const spoken = take.words ?? [];
+    const active = playing ? currentWordIndex(spoken, current) : -1;
+    const long = take.transcript.length > 90 || spoken.length > 12;
+    const shown = loadedIdRef.current === take.id ? current : 0;
+    const total = loadedIdRef.current === take.id ? duration : 0;
+    const ratio = total > 0 ? Math.min(1, shown / total) : 0;
+    return (
+      <View
+        key={take.id}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        {take.playable ? (
+          <View style={styles.transport}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={playing ? 'Pause' : 'Play'}
+              disabled={loadingId === take.id}
+              hitSlop={8}
+              onPress={() => void togglePlay(take.id)}
+              style={styles.play}>
+              <SymbolView
+                name={
+                  playing
+                    ? { ios: 'pause.fill', android: 'pause', web: 'pause' }
+                    : { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' }
+                }
+                size={22}
+                tintColor={theme.accent}
+              />
+            </Pressable>
+            <View style={styles.meter}>
+              <View style={[styles.track, { backgroundColor: theme.border }]}>
+                <View
+                  style={[styles.fill, { width: `${ratio * 100}%`, backgroundColor: theme.accent }]}
+                />
+              </View>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.clock}>
+                {clipClock(shown)} / {clipClock(total)}
+              </ThemedText>
+            </View>
+          </View>
+        ) : null}
+        <ThemedText type="small" themeColor="textSecondary">
+          {take.label ?? `${fallback} ${index + 1}`}
+        </ThemedText>
+        {spoken.length > 0 ? (
+          <ThemedText style={styles.words} numberOfLines={2}>
+            {spoken.map((word, wordIndex) => (
+              <ThemedText
+                key={`${take.id}-${wordIndex}`}
+                style={[
+                  styles.words,
+                  wordIndex === active ? { color: theme.accent, fontFamily: FontFamily.semibold } : null,
+                ]}>
+                {wordIndex === 0 ? word.text : ` ${word.text}`}
+              </ThemedText>
+            ))}
+          </ThemedText>
+        ) : (
+          <ThemedText style={styles.words} numberOfLines={2}>
+            {take.transcript}
+          </ThemedText>
+        )}
+        {long ? (
+          <Pressable accessibilityRole="button" onPress={() => setFullTake(take)} hitSlop={8}>
+            <ThemedText type="smallBold" style={{ color: theme.accent }}>
+              Show full transcript
+            </ThemedText>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <Modal visible={open} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.page, { backgroundColor: theme.background, paddingTop: insets.top + Spacing.three }]}>
@@ -140,95 +224,55 @@ export function DayWords({
           {takes.length === 0 ? (
             <ThemedText themeColor="textSecondary">No recordings on this day yet.</ThemedText>
           ) : (
-            takes.map((take, index) => {
-              const playing = playingId === take.id;
-              const expanded = openIds[take.id] === true || playing;
-              const spoken = take.words ?? [];
-              const active = playing ? currentWordIndex(spoken, current) : -1;
-              const long = take.transcript.length > 90 || spoken.length > 12;
-              const shown = loadedIdRef.current === take.id ? current : 0;
-              const total = loadedIdRef.current === take.id ? duration : 0;
-              const ratio = total > 0 ? Math.min(1, shown / total) : 0;
-              return (
-                <View
-                  key={take.id}
-                  style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                  {take.playable ? (
-                    <View style={styles.transport}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={playing ? 'Pause' : 'Play'}
-                        disabled={loadingId === take.id}
-                        hitSlop={8}
-                        onPress={() => void togglePlay(take.id)}
-                        style={styles.play}>
-                        <SymbolView
-                          name={
-                            playing
-                              ? { ios: 'pause.fill', android: 'pause', web: 'pause' }
-                              : { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' }
-                          }
-                          size={22}
-                          tintColor={theme.accent}
-                        />
-                      </Pressable>
-                      <View style={styles.meter}>
-                        <View style={[styles.track, { backgroundColor: theme.border }]}>
-                          <View
-                            style={[
-                              styles.fill,
-                              { width: `${ratio * 100}%`, backgroundColor: theme.accent },
-                            ]}
-                          />
-                        </View>
-                        <ThemedText type="small" themeColor="textSecondary" style={styles.clock}>
-                          {clipClock(shown)} / {clipClock(total)}
-                        </ThemedText>
-                      </View>
-                    </View>
-                  ) : null}
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {take.label ?? `Take ${index + 1}`}
-                  </ThemedText>
-                  {spoken.length > 0 ? (
-                    <ThemedText style={styles.words} numberOfLines={expanded ? undefined : 2}>
-                      {spoken.map((word, wordIndex) => (
-                        <ThemedText
-                          key={`${take.id}-${wordIndex}`}
-                          style={[
-                            styles.words,
-                            wordIndex === active ? { color: theme.accent, fontFamily: FontFamily.semibold } : null,
-                          ]}>
-                          {wordIndex === 0 ? word.text : ` ${word.text}`}
-                        </ThemedText>
-                      ))}
-                    </ThemedText>
-                  ) : (
-                    <ThemedText style={styles.words} numberOfLines={expanded ? undefined : 2}>
-                      {take.transcript}
-                    </ThemedText>
-                  )}
-                  {long ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() =>
-                        setOpenIds((currentOpen) => ({
-                          ...currentOpen,
-                          [take.id]: !expanded,
-                        }))
-                      }
-                      hitSlop={8}>
-                      <ThemedText type="smallBold" style={{ color: theme.accent }}>
-                        {expanded ? 'Show less' : 'Show full transcript'}
-                      </ThemedText>
-                    </Pressable>
-                  ) : null}
+            <>
+              {morning.length > 0 ? (
+                <View style={styles.section}>
+                  <ThemedText style={styles.sectionTitle}>Morning</ThemedText>
+                  {morning.map((take, index) => renderTake(take, index, 'Take'))}
                 </View>
-              );
-            })
+              ) : null}
+              {evening.length > 0 ? (
+                <View style={styles.section}>
+                  <ThemedText style={styles.sectionTitle}>Evening</ThemedText>
+                  {evening.map((take, index) => renderTake(take, index, 'Evening'))}
+                </View>
+              ) : null}
+            </>
           )}
         </ScrollView>
       </View>
+      <Modal visible={fullTake != null} animationType="fade" transparent onRequestClose={() => setFullTake(null)}>
+        <View style={styles.fullLock}>
+          <View
+            style={[
+              styles.fullSheet,
+              {
+                backgroundColor: theme.background,
+                borderColor: theme.border,
+                paddingBottom: insets.bottom + Spacing.three,
+              },
+            ]}>
+            <View style={styles.top}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close transcript"
+                hitSlop={12}
+                onPress={() => setFullTake(null)}
+                style={styles.iconBtn}>
+                <SymbolView
+                  name={{ ios: 'xmark', android: 'close', web: 'close' }}
+                  size={18}
+                  tintColor={theme.text}
+                />
+              </Pressable>
+              <ThemedText style={styles.title}>{fullTake?.label ?? 'Transcript'}</ThemedText>
+            </View>
+            <ScrollView contentContainerStyle={styles.fullBody}>
+              <ThemedText style={styles.words}>{fullTake?.transcript}</ThemedText>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -257,8 +301,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   body: {
-    gap: Spacing.three,
+    gap: Spacing.four,
     paddingBottom: Spacing.five,
+  },
+  section: {
+    gap: Spacing.three,
+  },
+  sectionTitle: {
+    fontFamily: FontFamily.semibold,
+    fontSize: 18,
+    lineHeight: 24,
+    textAlign: 'center',
   },
   card: {
     borderWidth: 1,
@@ -297,5 +350,21 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
     fontSize: 16,
     lineHeight: 24,
+  },
+  fullLock: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(28, 25, 21, 0.36)',
+  },
+  fullSheet: {
+    maxHeight: '78%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.two,
+  },
+  fullBody: {
+    paddingBottom: Spacing.four,
   },
 });

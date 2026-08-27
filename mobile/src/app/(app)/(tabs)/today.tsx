@@ -1,10 +1,12 @@
 import { type Href, router, useFocusEffect } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuthUser } from '@/components/auth/auth-session';
 import { HomeTopBar } from '@/components/home/home-top-bar';
+import { EveningSheet } from '@/components/talk/evening-sheet';
+import { ReflectCue } from '@/components/talk/reflect-cue';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -19,6 +21,9 @@ import {
   weekStrip,
 } from '@/lib/dashboard';
 import { getFirebaseAuth } from '@/lib/firebase';
+import { type DayRecord } from '@/lib/api';
+import { useReflectOpen, useReflectToday } from '@/lib/reflect-settings';
+import { openReflectDays } from '@/lib/reflect-window';
 import { useGetDeskQuery, useGetHistoryQuery } from '@/store/api';
 
 function weekdayDate(now = new Date()): string {
@@ -43,6 +48,13 @@ export default function HomeScreen() {
   const { data: history = [], refetch: refetchHistory } = useGetHistoryQuery(timezone, {
     skip: !signedIn,
   });
+  const inWindow = useReflectOpen();
+  const reflectToday = useReflectToday();
+  const book = desk?.today
+    ? [desk.today, ...history.filter((day) => day.id !== desk.today?.id)]
+    : history;
+  const openNights = openReflectDays(book, reflectToday);
+  const [recover, setRecover] = useState<DayRecord | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -84,6 +96,10 @@ export default function HomeScreen() {
         onAvatarPress={onAvatar}
       />
       <ScrollView contentContainerStyle={styles.content}>
+        <ReflectCue
+          visible={inWindow && openNights.length > 0}
+          onPress={() => setRecover(openNights[0] ?? null)}
+        />
         <View style={styles.week}>
           {week.map((day) => (
             <View key={day.key} style={styles.weekDay}>
@@ -200,6 +216,7 @@ export default function HomeScreen() {
           </ThemedText>
         </Pressable>
       </ScrollView>
+      <EveningSheet day={recover} onClose={() => setRecover(null)} />
     </ThemedView>
   );
 }

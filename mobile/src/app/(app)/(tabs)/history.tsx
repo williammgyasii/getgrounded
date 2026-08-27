@@ -8,12 +8,15 @@ import { useAuthUser } from '@/components/auth/auth-session';
 import { HomeTopBar } from '@/components/home/home-top-bar';
 import { agendaSummary } from '@/components/talk/day-agenda';
 import { DangerConfirm } from '@/components/talk/danger-confirm';
+import { EveningSheet } from '@/components/talk/evening-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { deviceTimezone } from '@/lib/api';
+import { deviceTimezone, type DayRecord } from '@/lib/api';
 import { longDayLabel, scheduledTasks } from '@/lib/day-tasks';
+import { useReflectToday } from '@/lib/reflect-settings';
+import { canRecoverDay } from '@/lib/reflect-window';
 import { useGetHistoryQuery, useRemoveDayMutation } from '@/store/api';
 
 function initialFrom(email: string | null | undefined): string {
@@ -27,7 +30,9 @@ export default function TasksScreen() {
   const signedIn = user != null;
   const { data: days = [], refetch } = useGetHistoryQuery(deviceTimezone(), { skip: !signedIn });
   const [removeDay] = useRemoveDayMutation();
+  const today = useReflectToday();
   const [pending, setPending] = useState<{ id: string; title: string } | null>(null);
+  const [recover, setRecover] = useState<DayRecord | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,6 +96,20 @@ export default function TasksScreen() {
                         {agendaSummary(tasks)}
                       </ThemedText>
                     </View>
+                    {canRecoverDay(day, today) ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Close this night"
+                        onPress={() => setRecover(day)}
+                        hitSlop={8}
+                        style={styles.trash}>
+                        <SymbolView
+                          name={{ ios: 'moon.fill', android: 'bedtime', web: 'bedtime' }}
+                          size={18}
+                          tintColor={theme.accent}
+                        />
+                      </Pressable>
+                    ) : null}
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Delete day"
@@ -113,6 +132,7 @@ export default function TasksScreen() {
           })
         )}
       </ScrollView>
+      <EveningSheet day={recover} onClose={() => setRecover(null)} />
       <DangerConfirm
         open={pending != null}
         title="Delete this day?"

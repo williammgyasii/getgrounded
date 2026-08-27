@@ -43,8 +43,11 @@ function guessArea(title: string): string {
   if (looksLikeMeal(title) || contains(text, ['cook', 'grocery', 'home', 'laundry', 'clean'])) {
     return 'HOME';
   }
-  if (contains(text, ['gym', 'run', 'walk', 'workout', 'yoga', 'health', 'doctor'])) {
+  if (contains(text, ['gym', 'run', 'walk', 'workout', 'yoga', 'health', 'doctor', 'shower', 'bath'])) {
     return 'HEALTH';
+  }
+  if (contains(text, ['bible', 'scripture', 'pray', 'church', 'meditat'])) {
+    return 'SPIRITUAL';
   }
   if (contains(text, ['read', 'study', 'learn', 'course', 'class'])) {
     return 'LEARNING';
@@ -52,10 +55,7 @@ function guessArea(title: string): string {
   if (contains(text, ['ship', 'work', 'meeting', 'code', 'api', 'email', 'office'])) {
     return 'WORK';
   }
-  if (contains(text, ['pray', 'church', 'meditat'])) {
-    return 'SPIRITUAL';
-  }
-  if (contains(text, ['call', 'family', 'friend', 'date'])) {
+  if (contains(text, ['call', 'family', 'friend', 'date', 'mom', 'dad', 'mother', 'father'])) {
     return 'RELATIONSHIPS';
   }
   if (contains(text, ['bill', 'money', 'budget', 'invoice'])) {
