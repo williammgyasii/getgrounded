@@ -49,3 +49,27 @@ public sealed record DayRecord(
     IReadOnlyList<ClipRecord> Clips);
 
 public sealed record DeskRecord(DateOnly LocalDate, int StreakDays, DayRecord? Today, DayRecord? Yesterday);
+
+public sealed record ReviewNight(
+    Guid DayId,
+    DateOnly LocalDate,
+    string? Title,
+    int Planned,
+    int Done,
+    int Partial,
+    int Missed,
+    int Extras);
+
+public sealed record ReviewRecord(
+    DateOnly From,
+    DateOnly To,
+    string Timezone,
+    int ClosedNights,
+    int Planned,
+    int Done,
+    int Partial,
+    int Missed,
+    int Extras,
+    decimal Earned,
+    int? FollowThrough,
+    IReadOnlyList<ReviewNight> Nights);

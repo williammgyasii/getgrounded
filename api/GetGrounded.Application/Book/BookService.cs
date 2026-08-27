@@ -139,6 +139,16 @@ public sealed class BookService(IBookStore book, IClock clock, IAudioStore? audi
         return await book.GetDaysAsync(userId, today.AddDays(-29), today, cancellationToken);
     }
 
+    public async Task<ReviewRecord> GetReviewAsync(
+        Guid userId,
+        string timezone,
+        CancellationToken cancellationToken = default)
+    {
+        var today = LocalDay.From(timezone, clock.UtcNow);
+        var days = await book.GetDaysAsync(userId, today.AddDays(-6), today, cancellationToken);
+        return FollowThrough.From(today, timezone.Trim(), days);
+    }
+
     public Task<DayRecord?> RenameDayAsync(
         Guid userId,
         Guid dayId,

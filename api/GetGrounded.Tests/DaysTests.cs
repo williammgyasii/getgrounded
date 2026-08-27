@@ -215,6 +215,66 @@ public class DaysTests
         Assert.Contains(closed.Clips, clip => clip.Kind == "EVENING_REFLECTION");
     }
 
+    [Fact]
+    public async Task Review_scores_closed_nights_only()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "valid-test-token");
+
+        var empty = await client.GetAsync("/days/review?timezone=UTC");
+        var before = await empty.Content.ReadFromJsonAsync<ReviewBody>(Json);
+        Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
+        Assert.Equal(0, before!.ClosedNights);
+        Assert.Null(before.FollowThrough);
+
+        var written = await client.PostAsJsonAsync("/days/morning", new
+        {
+            timezone = "UTC",
+            transcript = "Gym, read, ship.",
+            title = "Heavy gym Tuesday",
+            commitments = new[]
+            {
+                new { title = "Gym" },
+                new { title = "Read" },
+                new { title = "Ship" }
+            }
+        });
+        var day = await written.Content.ReadFromJsonAsync<DayBody>(Json);
+
+        var stillOpen = await client.GetAsync("/days/review?timezone=UTC");
+        var open = await stillOpen.Content.ReadFromJsonAsync<ReviewBody>(Json);
+        Assert.Equal(0, open!.ClosedNights);
+        Assert.Null(open.FollowThrough);
+
+        await client.PostAsJsonAsync("/days/evening", new
+        {
+            timezone = "UTC",
+            transcript = "Gym yes, read half, didn't ship, cleaned.",
+            dayId = day!.Id,
+            outcomes = new object[]
+            {
+                new { id = day.Commitments[0].Id, status = "COMPLETED" },
+                new { id = day.Commitments[1].Id, status = "PARTIAL" },
+                new { id = day.Commitments[2].Id, status = "MISSED" }
+            },
+            wins = new[] { new { title = "Cleaned" } }
+        });
+
+        var scored = await client.GetAsync("/days/review?timezone=UTC");
+        var review = await scored.Content.ReadFromJsonAsync<ReviewBody>(Json);
+        Assert.Equal(HttpStatusCode.OK, scored.StatusCode);
+        Assert.Equal(1, review!.ClosedNights);
+        Assert.Equal(3, review.Planned);
+        Assert.Equal(1, review.Done);
+        Assert.Equal(1, review.Partial);
+        Assert.Equal(1, review.Missed);
+        Assert.Equal(1, review.Extras);
+        Assert.Equal(50, review.FollowThrough);
+        Assert.Single(review.Nights);
+        Assert.Equal(day.Id, review.Nights[0].DayId);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -240,4 +300,14 @@ public class DaysTests
     private sealed record ClipBody(string Kind, string Transcript, bool Playable);
     private sealed record CommitmentBody(Guid Id, string Title, string Status);
     private sealed record WinBody(string Title);
+    private sealed record ReviewBody(
+        int ClosedNights,
+        int Planned,
+        int Done,
+        int Partial,
+        int Missed,
+        int Extras,
+        int? FollowThrough,
+        IReadOnlyList<ReviewNightBody> Nights);
+    private sealed record ReviewNightBody(Guid DayId, int Planned, int Done);
 }

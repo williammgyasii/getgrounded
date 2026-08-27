@@ -30,6 +30,25 @@ public sealed class DaysController(AuthService auth, BookService book) : Control
         }
     }
 
+    [HttpGet("review")]
+    public async Task<IActionResult> Review([FromQuery] string timezone, CancellationToken cancellationToken)
+    {
+        var user = await IdentifyAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            return Ok(await book.GetReviewAsync(user.Id, timezone, cancellationToken));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> History([FromQuery] string timezone, CancellationToken cancellationToken)
     {
