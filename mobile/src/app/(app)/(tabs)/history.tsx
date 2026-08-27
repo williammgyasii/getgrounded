@@ -16,7 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone, type DayRecord } from '@/lib/api';
 import { longDayLabel, scheduledTasks } from '@/lib/day-tasks';
 import { useReflectToday } from '@/lib/reflect-settings';
-import { canRecoverDay } from '@/lib/reflect-window';
+import { canRecoverDay, hasEvening } from '@/lib/reflect-window';
 import { useGetHistoryQuery, useRemoveDayMutation } from '@/store/api';
 
 function initialFrom(email: string | null | undefined): string {
@@ -79,13 +79,25 @@ export default function TasksScreen() {
         ) : (
           days.map((day, index) => {
             const tasks = scheduledTasks(day.commitments);
+            const closed = hasEvening(day);
             return (
               <Animated.View key={day.id} entering={FadeInDown.duration(280).delay(index * 40)}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Open ${day.title ?? day.localDate}`}
+                  accessibilityLabel={
+                    closed
+                      ? `Review ${day.title ?? day.localDate}`
+                      : `Open ${day.title ?? day.localDate}`
+                  }
                   onPress={() => router.push(`/day/${day.id}`)}
-                  style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: theme.card,
+                      borderColor: closed ? ClosedInk : theme.border,
+                      borderWidth: closed ? 2 : 1,
+                    },
+                  ]}>
                   <View style={styles.cardTop}>
                     <View style={styles.cardCopy}>
                       <ThemedText type="small" themeColor="textSecondary">
@@ -93,9 +105,22 @@ export default function TasksScreen() {
                       </ThemedText>
                       <ThemedText style={styles.dayTitle}>{day.title ?? 'Untitled day'}</ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
-                        {agendaSummary(tasks)}
+                        {closed ? 'Night closed · tap to review recordings' : agendaSummary(tasks)}
                       </ThemedText>
                     </View>
+                    {closed ? (
+                      <View style={styles.trash}>
+                        <SymbolView
+                          name={{
+                            ios: 'checkmark.circle.fill',
+                            android: 'check_circle',
+                            web: 'check_circle',
+                          }}
+                          size={22}
+                          tintColor={ClosedInk}
+                        />
+                      </View>
+                    ) : null}
                     {canRecoverDay(day, today) ? (
                       <Pressable
                         accessibilityRole="button"
@@ -151,6 +176,8 @@ export default function TasksScreen() {
     </ThemedView>
   );
 }
+
+const ClosedInk = '#2F4A3C';
 
 const styles = StyleSheet.create({
   screen: {
