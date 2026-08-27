@@ -72,3 +72,29 @@ export type DeskRecord = {
   today: DayRecord | null;
   yesterday: DayRecord | null;
 };
+
+export type ReviewNight = {
+  dayId: string;
+  localDate: string;
+  title: string | null;
+  planned: number;
+  done: number;
+  partial: number;
+  missed: number;
+  extras: number;
+};
+
+export type ReviewRecord = {
+  from: string;
+  to: string;
+  timezone: string;
+  closedNights: number;
+  planned: number;
+  done: number;
+  partial: number;
+  missed: number;
+  extras: number;
+  earned: number;
+  followThrough: number | null;
+  nights: ReviewNight[];
+};

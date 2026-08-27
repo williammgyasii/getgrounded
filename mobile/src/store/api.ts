@@ -7,6 +7,7 @@ import {
   type DeskRecord,
   type EveningDraft,
   type MorningDraft,
+  type ReviewRecord,
   type SpokenWord,
 } from '@/lib/api';
 import { getFirebaseAuth } from '@/lib/firebase';
@@ -31,7 +32,7 @@ export const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://dev.get-ground
 
 export const groundedApi = createApi({
   reducerPath: 'groundedApi',
-  tagTypes: ['Desk', 'History'],
+  tagTypes: ['Desk', 'History', 'Review'],
   baseQuery: fetchBaseQuery({
     baseUrl: apiUrl,
     prepareHeaders: async (headers) => {
@@ -54,6 +55,10 @@ export const groundedApi = createApi({
       query: (timezone) => `/days?timezone=${encodeURIComponent(timezone)}`,
       providesTags: ['History'],
     }),
+    getReview: build.query<ReviewRecord, string>({
+      query: (timezone) => `/days/review?timezone=${encodeURIComponent(timezone)}`,
+      providesTags: ['Review'],
+    }),
     planMorning: build.mutation<
       DayRecord,
       {
@@ -75,7 +80,7 @@ export const groundedApi = createApi({
         method: 'POST',
         body: { timezone, transcript, title, storageKey, words, commitments },
       }),
-      invalidatesTags: ['Desk', 'History'],
+      invalidatesTags: ['Desk', 'History', 'Review'],
     }),
     reflectEvening: build.mutation<
       DayRecord,
@@ -112,7 +117,7 @@ export const groundedApi = createApi({
           // Invalidate below will refetch.
         }
       },
-      invalidatesTags: ['Desk', 'History'],
+      invalidatesTags: ['Desk', 'History', 'Review'],
     }),
     hearClip: build.mutation<
       { transcript: string; storageKey?: string; words?: SpokenWord[] },
@@ -162,7 +167,7 @@ export const groundedApi = createApi({
           patches.forEach((patch) => patch.undo());
         }
       },
-      invalidatesTags: ['Desk', 'History'],
+      invalidatesTags: ['Desk', 'History', 'Review'],
     }),
     removeDay: build.mutation<void, string>({
       query: (id) => ({
@@ -177,7 +182,7 @@ export const groundedApi = createApi({
           patches.forEach((patch) => patch.undo());
         }
       },
-      invalidatesTags: ['Desk', 'History'],
+      invalidatesTags: ['Desk', 'History', 'Review'],
     }),
     markCommitment: build.mutation<DayRecord, { id: string; status: string }>({
       query: ({ id, status }) => ({
@@ -196,7 +201,7 @@ export const groundedApi = createApi({
           patches.forEach((patch) => patch.undo());
         }
       },
-      invalidatesTags: ['Desk', 'History'],
+      invalidatesTags: ['Desk', 'History', 'Review'],
     }),
     removeCommitment: build.mutation<DayRecord, string>({
       query: (id) => ({
@@ -214,7 +219,7 @@ export const groundedApi = createApi({
           patches.forEach((patch) => patch.undo());
         }
       },
-      invalidatesTags: ['Desk', 'History'],
+      invalidatesTags: ['Desk', 'History', 'Review'],
     }),
     postClip: build.mutation<
       DeskRecord,
@@ -225,7 +230,7 @@ export const groundedApi = createApi({
         method: 'POST',
         body: clipForm(uri, { kind, timezone }),
       }),
-      invalidatesTags: ['Desk', 'History'],
+      invalidatesTags: ['Desk', 'History', 'Review'],
     }),
   }),
 });
@@ -264,6 +269,7 @@ function patchBook(
 export const {
   useGetDeskQuery,
   useGetHistoryQuery,
+  useGetReviewQuery,
   usePlanMorningMutation,
   useReflectEveningMutation,
   useHearClipMutation,
