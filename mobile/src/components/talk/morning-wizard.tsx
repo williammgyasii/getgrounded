@@ -31,6 +31,7 @@ import { ThemedText } from '@/components/themed-text';
 import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone, type SpokenWord } from '@/lib/api';
+import { ClipRecord } from '@/lib/clip-record';
 import { clockToMinute, minuteToClock, spokenMinuteNow } from '@/lib/clock';
 import { rememberWords } from '@/lib/day-notes';
 import { layOut } from '@/lib/lay-out';
@@ -81,21 +82,7 @@ export function MorningWizard() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const timezone = deviceTimezone();
-  const recorder = useAudioRecorder({
-    extension: '.m4a',
-    sampleRate: 16_000,
-    numberOfChannels: 1,
-    bitRate: 64_000,
-    isMeteringEnabled: true,
-    android: {
-      outputFormat: 'mpeg4',
-      audioEncoder: 'aac',
-    },
-    ios: {
-      outputFormat: 'aac ',
-      audioQuality: 0x60,
-    },
-  });
+  const recorder = useAudioRecorder(ClipRecord);
   const rec = useAudioRecorderState(recorder, 80);
   const talk = useTalkTake();
   const [hearClip] = useHearClipMutation();

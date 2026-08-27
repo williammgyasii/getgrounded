@@ -30,6 +30,7 @@ import { ThemedText } from '@/components/themed-text';
 import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone, type DayRecord, type SpokenWord } from '@/lib/api';
+import { ClipRecord } from '@/lib/clip-record';
 import { rememberWords } from '@/lib/day-notes';
 import { longDayLabel } from '@/lib/day-tasks';
 import { heardIds } from '@/lib/spoken-match';
@@ -70,21 +71,7 @@ export function EveningWizard({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const timezone = deviceTimezone();
-  const recorder = useAudioRecorder({
-    extension: '.m4a',
-    sampleRate: 16_000,
-    numberOfChannels: 1,
-    bitRate: 64_000,
-    isMeteringEnabled: true,
-    android: {
-      outputFormat: 'mpeg4',
-      audioEncoder: 'aac',
-    },
-    ios: {
-      outputFormat: 'aac ',
-      audioQuality: 0x60,
-    },
-  });
+  const recorder = useAudioRecorder(ClipRecord);
   const rec = useAudioRecorderState(recorder, 80);
   const talk = useTalkTake();
   const [hearClip] = useHearClipMutation();
@@ -688,7 +675,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   busy: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(28, 25, 21, 0.18)',
