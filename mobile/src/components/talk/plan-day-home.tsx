@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, Layout, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 
 import { PlanActionsSheet } from '@/components/talk/plan-actions-sheet';
 import { humanAiText } from '@/lib/human-text';
@@ -282,7 +282,7 @@ function ToggleIcon({
   onPress,
 }: {
   active: boolean;
-  icon: { ios: string; android: string; web: string };
+  icon: SymbolViewProps['name'];
   label: string;
   onPress: () => void;
 }) {

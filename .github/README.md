@@ -22,7 +22,7 @@ Required status checks (skipped jobs do not block):
 - `CI — typecheck` (Mobile)
 - `CI — validate and plan` (Infra)
 
-Enable in **Settings → Branches → main** if not already applied via repo settings.
+Configured on **`main`**: required checks above, PR required (0 approvals), strict up-to-date, no force-push.
 
 ## Release
 

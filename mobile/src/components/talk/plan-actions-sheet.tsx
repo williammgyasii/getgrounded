@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 
 import { type WordTake } from '@/components/talk/day-words';
 import { PlanInlineTranscripts } from '@/components/talk/plan-inline-transcripts';
@@ -98,7 +98,7 @@ function SheetAction({
   destructive,
   onPress,
 }: {
-  icon: { ios: string; android: string; web: string };
+  icon: SymbolViewProps['name'];
   label: string;
   hint?: string;
   destructive?: boolean;

@@ -1,5 +1,5 @@
-import { type Href, router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { type Href, router, useSegments } from 'expo-router';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,11 +14,14 @@ type GroundedTabBarProps = {
 
 const todayIcon = { ios: 'house.fill', android: 'home', web: 'home' } as const;
 const planIcon = { ios: 'waveform.circle.fill', android: 'graphic_eq', web: 'graphic_eq' } as const;
-const youIcon = { ios: 'person.fill', android: 'person', web: 'person' } as const;
+const profileIcon = { ios: 'person.crop.circle.fill', android: 'account_circle', web: 'account_circle' } as const;
+const settingsIcon = { ios: 'gearshape.fill', android: 'settings', web: 'settings' } as const;
 
 export function GroundedTabBar({ state }: GroundedTabBarProps) {
   const insets = useSafeAreaInsets();
   const current = state.routes[state.index]?.name;
+  const segments = useSegments();
+  const onSettings = (segments as string[]).includes('settings');
 
   return (
     <View
@@ -42,10 +45,16 @@ export function GroundedTabBar({ state }: GroundedTabBarProps) {
         onPress={() => router.navigate('/talk' as Href)}
       />
       <TabItem
-        label="You"
-        focused={current === 'you'}
-        icon={youIcon}
+        label="Profile"
+        focused={current === 'you' && !onSettings}
+        icon={profileIcon}
         onPress={() => router.navigate('/you' as Href)}
+      />
+      <TabItem
+        label="Settings"
+        focused={current === 'you' && onSettings}
+        icon={settingsIcon}
+        onPress={() => router.navigate('/you/settings' as Href)}
       />
     </View>
   );
@@ -60,12 +69,12 @@ function TabItem({
 }: {
   label: string;
   focused: boolean;
-  icon: typeof todayIcon;
+  icon: SymbolViewProps['name'];
   accent?: boolean;
   onPress: () => void;
 }) {
   const color = focused ? (accent ? PlanBlue.primary : PlanSurface.text) : PlanSurface.textMuted;
-  const iconSize = accent ? 26 : 24;
+  const iconSize = accent ? 26 : 22;
 
   return (
     <Pressable
