@@ -36,7 +36,7 @@ npm run dev
 npm run deploy
 ```
 
-CI: `.github/workflows/api.yml` on push to `main` when `api/**` or `api-worker/**` changes (test → worker check → `wrangler deploy`). Update Worker secrets locally when `api/.env` changes; CI deploy does not upload them.
+CI: `.github/workflows/ci.yml` tests on PR/`main`. Production deploy: `.github/workflows/release.yml` on tag `v*`. Update Worker secrets locally when `api/.env` changes; release deploy does not upload them.
 
 ## Shut down legacy Cloud Run
 

@@ -92,10 +92,8 @@ Same repo, separate workflows (path filters):
 
 | Workflow | Runs when | Does |
 |---|---|---|
-| `.github/workflows/api.yml` | `api/**`, `api-worker/**` | Test; deploy **get-grounded-api** on `main` |
-| `.github/workflows/website.yml` | `website/**` | PR: lint + build + preview; `main`: deploy Pages |
-| `.github/workflows/mobile.yml` | `mobile/**` | Typecheck; EAS production on **Run workflow** |
-| `.github/workflows/infra.yml` | `infra/terraform/**` | Plan prod; apply on **Run workflow** only |
+| `.github/workflows/ci.yml` | PR or push to `main` | Path-filtered test/build/plan — **no prod deploy** |
+| `.github/workflows/release.yml` | Tag `v*` or **Run workflow** | Deploy API, website, EAS production |
 
 Mobile is not gated until we build the app.
 

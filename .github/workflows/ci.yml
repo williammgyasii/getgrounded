@@ -1,0 +1,261 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      terraform_apply:
+        description: "Apply Terraform (prod). Read the plan first."
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      run_all: ${{ steps.filter.outputs.run_all }}
+      api: ${{ steps.filter.outputs.api }}
+      website: ${{ steps.filter.outputs.website }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            run_all:
+              - '.github/workflows/**'
+            api:
+              - 'api/**'
+              - 'api-worker/**'
+              - 'global.json'
+            website:
+              - 'website/**'
+            mobile:
+              - 'mobile/**'
+            infra:
+              - 'infra/terraform/**'
+
+  api-dotnet:
+    name: API — .NET tests
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.run_all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet test GetGrounded.slnx --configuration Release --nologo
+
+  api-worker:
+    name: API — worker tests
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.run_all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: api-worker/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+
+  website:
+    name: Website — lint and build
+    needs: changes
+    if: needs.changes.outputs.website == 'true' || needs.changes.outputs.run_all == 'true'
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+        env:
+          VITE_LOOPS_FORM_ID: ${{ secrets.VITE_LOOPS_FORM_ID }}
+          VITE_SUPPORT_EMAIL: ${{ secrets.VITE_SUPPORT_EMAIL }}
+          VITE_HERO_VIDEO_URL: ${{ secrets.VITE_HERO_VIDEO_URL }}
+
+  website-preview:
+    name: Website — PR preview
+    needs: [changes, website]
+    if: |
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && (needs.changes.outputs.website == 'true' || needs.changes.outputs.run_all == 'true')
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_LOOPS_FORM_ID: ${{ secrets.VITE_LOOPS_FORM_ID }}
+          VITE_SUPPORT_EMAIL: ${{ secrets.VITE_SUPPORT_EMAIL }}
+      - uses: cloudflare/wrangler-action@v3
+        id: deploy
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: website
+          command: pages deploy dist --project-name=get-grounded-web --branch=pr-${{ github.event.pull_request.number }}
+      - name: Comment preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = `${{ steps.deploy.outputs.deployment-url }}`.trim();
+            if (!url) return;
+            const body = `**Website preview** (PR #${context.issue.number})\n\n${url}`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) =>
+              c.user.type === 'Bot' && c.body?.includes('Website preview'),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  mobile:
+    name: Mobile — typecheck
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true' || needs.changes.outputs.run_all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  infra-validate:
+    name: Infra — validate
+    needs: changes
+    if: |
+      needs.changes.outputs.infra == 'true'
+      || needs.changes.outputs.run_all == 'true'
+      || (github.event_name == 'workflow_dispatch' && inputs.terraform_apply)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"
+      - run: terraform fmt -check -recursive
+        working-directory: infra/terraform
+      - name: Validate prod root
+        working-directory: infra/terraform/environments/prod
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+  infra-plan:
+    name: Infra — plan
+    needs: [changes, infra-validate]
+    if: |
+      (needs.changes.outputs.infra == 'true' || needs.changes.outputs.run_all == 'true')
+      && (github.event_name != 'workflow_dispatch' || inputs.terraform_apply == false)
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+      CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"
+      - name: Plan
+        if: env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != ''
+        working-directory: infra/terraform/environments/prod
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color
+      - name: Skip plan
+        if: env.AWS_ACCESS_KEY_ID == '' || env.AWS_SECRET_ACCESS_KEY == ''
+        run: echo "Need R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in prod. Validate already ran."
+
+  infra-apply:
+    name: Infra — apply
+    needs: [infra-validate]
+    if: github.event_name == 'workflow_dispatch' && inputs.terraform_apply
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+      CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"
+      - name: Apply
+        working-directory: infra/terraform/environments/prod
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve

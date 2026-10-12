@@ -54,8 +54,8 @@ API lives at **`api.get-grounded.app`** (Cloudflare Containers), not this Pages 
 
 | Workflow | When | What |
 |----------|------|------|
-| `website.yml` | PR | Lint + build + optional preview comment |
-| `website.yml` | Push to `main` or **Run workflow** | Deploy production on Pages |
+| `ci.yml` | PR / push to `main` | Lint + build; PR preview comment |
+| `release.yml` | Tag `v*` or **Run workflow** | Deploy production on Pages |
 
 Secrets live in GitHub environment **`prod`**. See [`.github/README.md`](../.github/README.md).
 

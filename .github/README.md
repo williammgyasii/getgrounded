@@ -1,33 +1,50 @@
 # GitHub Actions
 
-Four pipelines, one GitHub **environment** (`prod`) for secrets and deploy gates.
+Two workflows. **CI** on every PR and merge to `main`. **Release (CD)** only when you push a **version tag**.
 
-| Workflow | Paths | What |
-|---|---|---|
-| `api.yml` | `api/**`, `api-worker/**` | Test .NET + worker. On `main`, deploy **get-grounded-api** (Cloudflare Containers) |
-| `website.yml` | `website/**` | PR: lint + build + optional Pages preview. `main`: deploy **get-grounded-web** |
-| `mobile.yml` | `mobile/**` | Typecheck on PR/`main`. EAS **production** only via **Run workflow** |
-| `infra.yml` | `infra/terraform/**` | `fmt` + validate + plan **prod** root. Apply is manual dispatch only |
+## CI (`ci.yml`)
 
-EAS and Terraform apply do not run on every push.
+| Trigger | What runs |
+|---------|-----------|
+| **Pull request → `main`** | Path-filtered jobs (see below). Website PRs also get a Cloudflare **preview** comment. |
+| **Push to `main`** | Same checks — **no production deploy**. |
+| **Run workflow** (optional) | Terraform **apply** if you enable `terraform_apply` (infra only). |
+
+One Actions run per event. A `changes` job decides which areas to test:
+
+| Job | Paths |
+|-----|--------|
+| API — .NET + worker | `api/**`, `api-worker/**`, `global.json` |
+| Website — lint + build | `website/**` |
+| Mobile — typecheck | `mobile/**` |
+| Infra — fmt, validate, plan | `infra/terraform/**` |
+
+Editing `.github/workflows/**` runs **all** of the above.
+
+## Release / CD (`release.yml`)
+
+| Trigger | What runs |
+|---------|-----------|
+| **Push tag `v*`** (e.g. `v1.0.0`) | Deploy **API** (Cloudflare Containers), **website** (Pages), **EAS production** mobile build |
+| **Run workflow** | Same deploy jobs (emergency redeploy) |
+
+```bash
+git checkout main && git pull
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Infra is **not** applied on release tags. Use **CI → Run workflow → terraform_apply** when you intend to change Terraform.
 
 ## Secrets (environment `prod`)
 
-| Secret | Used by |
-|---|---|
-| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Infra Terraform state |
-| `CLOUDFLARE_DEPLOY_TOKEN` | **Wrangler deploy** — API Containers + website Pages (Workers Scripts + Pages Edit) |
-| `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY` | Terraform / DNS (can overlap with deploy token) |
+| Secret | Used for |
+|--------|----------|
+| `CLOUDFLARE_DEPLOY_TOKEN` | Wrangler — API + website deploy |
 | `CLOUDFLARE_ACCOUNT_ID` | Wrangler |
-| `VITE_LOOPS_FORM_ID` | Website build (optional) |
-| `VITE_SUPPORT_EMAIL` | Website build (optional) |
-| `VITE_HERO_VIDEO_URL` | Website prod build (optional) |
-| `EXPO_TOKEN` | EAS |
+| `CLOUDFLARE_API_TOKEN` / email + global key | Terraform plan/apply |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Terraform state backend |
+| `VITE_*` | Website build |
+| `EXPO_TOKEN` | EAS on release |
 
-**Cloudflare token:** **Workers Scripts → Edit**, **Pages → Edit**, **Account Settings → Read**.
-
-Worker runtime secrets (`DATABASE_URL`, etc.) are on the **`get-grounded-api`** Worker in Cloudflare, not in GitHub. CI `wrangler deploy` keeps existing Worker secrets.
-
-Domains: **`get-grounded.app`** (Pages), **`api.get-grounded.app`** (API Worker).
-
-Legacy `infra/terraform/environments/dev` is not run in CI; use prod or local Terraform only.
+Worker runtime secrets (`DATABASE_URL`, etc.) live on the **`get-grounded-api`** Worker in Cloudflare, not in GitHub.
