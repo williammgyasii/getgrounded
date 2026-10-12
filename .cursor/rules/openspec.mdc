@@ -1,0 +1,17 @@
+---
+description: OpenSpec is the source of truth for behavior. Read specs before building; record changes in openspec/changes/.
+globs:
+alwaysApply: true
+---
+
+# OpenSpec workflow
+
+Before a feature or behavior change:
+
+1. Read `openspec/specs/` for the area.
+2. Read active work in `openspec/changes/`.
+3. Run `/opsx-explore` before proposing or writing code.
+
+End to end: spec → failing test → minimal code → run test. Sync with `/opsx-sync` after shipping; archive with `/opsx-archive` when asked.
+
+Architecture notes: `docs/architecture/vdd-map.md`. Product map: `docs/FEATURES.md`.

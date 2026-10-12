@@ -1,0 +1,31 @@
+---
+description: When the user says "restart servers", start API + Metro + Android dev stack.
+globs:
+alwaysApply: true
+---
+
+# Restart servers
+
+After mobile or local API UI changes, reload the app: `./scripts/reload-app.sh` (see `reload-after-change.mdc`).
+
+When the user says **restart servers** (or similar: "restart dev", "start all servers"):
+
+1. Run from repo root **in Cursor's terminal** (use `required_permissions: ["all"]` — Docker and adb need it):
+   ```bash
+   ./scripts/restart-servers.sh device
+   ```
+   Use `device` if a phone is connected via `adb devices`; otherwise `emulator`.
+
+2. Do **not** commit `.env` changes as part of this — only start processes.
+
+3. Three processes (same shell or split across Cursor terminal tabs if you prefer):
+   - **API** — `docker compose up --build` in `api/` on port 5217 (maps container 8080)
+   - **Metro** — `npm start` in `mobile/` on port 8080
+   - **Android** — deep link / adb reverse on USB device, or emulator
+
+Requires `api/.env` with Neon `DATABASE_URL` and `FIREBASE_PROJECT_ID`.
+
+Optional macOS Terminal.app tabs (not default):
+```bash
+RESTART_SERVERS_IN_TERMINAL=1 ./scripts/restart-servers.sh
+```

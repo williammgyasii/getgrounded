@@ -1,0 +1,23 @@
+# Reload the app after mobile/API UI changes
+
+After any change that affects what the user sees or hits the API (mobile screens, components, theme, `store/api`, or API behavior they exercise locally):
+
+1. **Reload the JS bundle** — from repo root:
+   ```bash
+   ./scripts/reload-app.sh
+   ```
+   Or in the Metro terminal: **`r`**.
+
+2. **If the API changed** (C# controllers, managers, DI, `.env` the container reads), restart Docker in `api/`:
+   ```bash
+   cd api && docker compose up --build -d
+   ```
+   Then run `./scripts/reload-app.sh` again.
+
+3. **If native deps or `app.json` changed**, the user needs `npx expo run:android` — say so; do not assume reload is enough.
+
+William does not restart dev servers himself. The **agent** must:
+
+- After **API** changes: `cd api && docker compose up --build -d`, wait until the container is listening, then `./scripts/reload-app.sh`.
+- After **mobile-only** changes: `./scripts/reload-app.sh` only.
+- Do this **before** saying “try it” or marking work done, unless the user said not to.
