@@ -1,7 +1,6 @@
-using GetGrounded.Application.Auth;
 using GetGrounded.Application.Book;
-using GetGrounded.Application.Health;
-using GetGrounded.Application.Voice;
+using GetGrounded.Application.Hear;
+using GetGrounded.Application.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GetGrounded.Application;
@@ -10,11 +9,17 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        services.AddSingleton<AuthService>();
-        services.AddSingleton<HealthService>();
-        services.AddSingleton<BookService>();
-        services.AddSingleton<IDayInterpreter, DayInterpreter>();
-        services.AddSingleton<ClipService>();
+        services.AddSingleton<AuthEngine>();
+        services.AddSingleton<AuthManager>();
+        services.AddSingleton<PlanMorningManager>();
+        services.AddSingleton<DeskManager>();
+        services.AddSingleton<HistoryManager>();
+        services.AddSingleton<DayEditManager>();
+        services.AddSingleton<PlanExtractManager>();
+        services.AddSingleton<PlanClarifyManager>();
+        services.AddSingleton<MuseVoiceManager>();
+        services.AddSingleton<HearManager>();
+        services.AddSingleton<VoiceClipManager>();
         return services;
     }
 }

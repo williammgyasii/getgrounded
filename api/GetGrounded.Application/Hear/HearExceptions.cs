@@ -1,4 +1,4 @@
-namespace GetGrounded.Application.Voice;
+namespace GetGrounded.Application.Hear;
 
 public sealed class InterpretException : Exception
 {

@@ -1,6 +1,6 @@
 using GetGrounded.Application.Book;
 
-namespace GetGrounded.Application.Voice;
+namespace GetGrounded.Application.Hear;
 
 public static class DayPlanner
 {
@@ -19,22 +19,27 @@ public static class DayPlanner
             })
             .ToList();
 
-        var placed = prepared
-            .Where(item => item.PlannedStartMinute is int)
-            .ToList();
-        var cursor = Math.Max(0, spokenMinute);
+        var timed = prepared.Where(item => item.PlannedStartMinute is int).ToList();
+        var untimed = prepared.Where(item => item.PlannedStartMinute is null).ToList();
 
-        foreach (var item in prepared.Where(item => item.PlannedStartMinute is null))
+        if (timed.Count == 0)
         {
-            var duration = item.PlannedDurationMinutes ?? DefaultMinutes;
-            var start = NextGap(cursor, duration, placed);
-            placed.Add(item with { PlannedStartMinute = start });
-            cursor = start + duration;
+            var placed = new List<PlannedItem>();
+            var cursor = Math.Max(0, spokenMinute);
+            foreach (var item in untimed)
+            {
+                var duration = item.PlannedDurationMinutes ?? DefaultMinutes;
+                var start = NextGap(cursor, duration, placed);
+                placed.Add(item with { PlannedStartMinute = start });
+                cursor = start + duration;
+            }
+
+            return placed.OrderBy(item => item.PlannedStartMinute ?? int.MaxValue).ToList();
         }
 
-        return placed
-            .OrderBy(item => item.PlannedStartMinute ?? int.MaxValue)
-            .ToList();
+        var mixed = new List<PlannedItem>(timed);
+        mixed.AddRange(untimed);
+        return mixed.OrderBy(item => item.PlannedStartMinute ?? int.MaxValue).ToList();
     }
 
     public static int GuessDuration(string title, int? given)
@@ -80,7 +85,7 @@ public static class DayPlanner
             return "RELATIONSHIPS";
         }
 
-        if (ContainsAny(text, "bill", "money", "budget", "invoice"))
+        if (ContainsAny(text, "budget", "bill", "pay", "bank", "money", "tax"))
         {
             return "FINANCIAL";
         }
@@ -121,8 +126,6 @@ public static class DayPlanner
         return ContainsAny(text, "lunch", "dinner", "breakfast", "brunch", "eat", "meal");
     }
 
-    private static bool ContainsAny(string text, params string[] needles)
-    {
-        return needles.Any(text.Contains);
-    }
+    private static bool ContainsAny(string text, params string[] needles) =>
+        needles.Any(text.Contains);
 }

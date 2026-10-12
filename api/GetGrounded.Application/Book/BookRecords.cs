@@ -1,4 +1,4 @@
-using GetGrounded.Application.Voice;
+using GetGrounded.Application.Hear;
 
 namespace GetGrounded.Application.Book;
 
@@ -7,14 +7,6 @@ public sealed record PlannedItem(
     int? PlannedDurationMinutes = null,
     int? PlannedStartMinute = null,
     string? LifeArea = null);
-
-public sealed record OutcomeItem(
-    Guid Id,
-    string Status,
-    int? ActualDurationMinutes = null,
-    string? Reason = null);
-
-public sealed record WinItem(string Title, string? LifeArea = null);
 
 public sealed record CommitmentRecord(
     Guid Id,
@@ -36,8 +28,6 @@ public sealed record ClipRecord(
     bool Playable = false,
     IReadOnlyList<SpokenWord>? Words = null);
 
-public sealed record ClipPointer(Guid Id, string? StorageKey);
-
 public sealed record DayRecord(
     Guid Id,
     DateOnly LocalDate,
@@ -46,30 +36,7 @@ public sealed record DayRecord(
     string? Title,
     IReadOnlyList<CommitmentRecord> Commitments,
     IReadOnlyList<WinRecord> Wins,
-    IReadOnlyList<ClipRecord> Clips);
+    IReadOnlyList<ClipRecord> Clips,
+    string? CoachNote = null);
 
 public sealed record DeskRecord(DateOnly LocalDate, int StreakDays, DayRecord? Today, DayRecord? Yesterday);
-
-public sealed record ReviewNight(
-    Guid DayId,
-    DateOnly LocalDate,
-    string? Title,
-    int Planned,
-    int Done,
-    int Partial,
-    int Missed,
-    int Extras);
-
-public sealed record ReviewRecord(
-    DateOnly From,
-    DateOnly To,
-    string Timezone,
-    int ClosedNights,
-    int Planned,
-    int Done,
-    int Partial,
-    int Missed,
-    int Extras,
-    decimal Earned,
-    int? FollowThrough,
-    IReadOnlyList<ReviewNight> Nights);
