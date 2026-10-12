@@ -97,7 +97,7 @@ Same repo, separate workflows (path filters):
 | `mobile.yml` | Typecheck | Tag `v*` → EAS production |
 | `infra.yml` | Plan | Manual apply only |
 
-Mobile is not gated until we build the app.
+Release process: [`docs/RELEASE.md`](docs/RELEASE.md). Merge to `main` runs CI only; push a **`v*`** tag to deploy (per area, if changed since last tag).
 
 GitHub → GCP uses Workload Identity. No JSON key in the repo.
 

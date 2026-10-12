@@ -104,9 +104,49 @@ jobs:
               });
             }
 
+  release-scope:
+    name: CD — scope since last tag
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.scope.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: prev
+        run: |
+          PREV=$(git tag -l 'v*' --sort=-v:refname | sed -n '2p')
+          if [ -z "$PREV" ]; then
+            echo "first=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=$PREV" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: steps.prev.outputs.first != 'true'
+        with:
+          base: ${{ steps.prev.outputs.base }}
+          filters: |
+            website:
+              - 'website/**'
+              - '.github/workflows/website.yml'
+      - id: scope
+        run: |
+          if [ "${{ steps.prev.outputs.first }}" = "true" ] || [ "${{ steps.filter.outputs.website }}" = "true" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
     name: CD — Pages production
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    needs: [release-scope]
+    if: |
+      always() && (
+        github.event_name == 'workflow_dispatch'
+        || (github.ref_type == 'tag' && needs.release-scope.outputs.deploy == 'true')
+      )
     runs-on: ubuntu-latest
     environment: prod
     permissions:

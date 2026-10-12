@@ -9,7 +9,20 @@ Four pipelines — **one per area**. Each has **CI** (PR + merge to `main`) and 
 | **`mobile.yml`** | Typecheck | Tag **`v*`** or **Run workflow** → EAS production |
 | **`infra.yml`** | fmt, validate, plan | **Run workflow** with **Apply** checked (no tag deploy) |
 
-Path filters: only the workflow whose folder changed runs on PR/`main` (except **tag pushes ignore paths** — every app workflow with `tags: v*` can run on release).
+Path filters: only the workflow whose folder changed runs on PR/`main`.
+
+**Release tags (`v*`):** each app workflow runs **CD — scope since last tag**; deploy only if that area changed since the previous `v*` tag (first tag deploys all). See [`docs/RELEASE.md`](../docs/RELEASE.md).
+
+## Branch protection (`main`)
+
+Required status checks (skipped jobs do not block):
+
+- `CI — test` (API)
+- `CI — lint and build` (Website)
+- `CI — typecheck` (Mobile)
+- `CI — validate and plan` (Infra)
+
+Enable in **Settings → Branches → main** if not already applied via repo settings.
 
 ## Release
 
@@ -19,7 +32,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-That triggers **API**, **Website**, and **Mobile** CD jobs in parallel. Infra is unchanged unless you run **Infra → Run workflow → apply**.
+Infra is unchanged on tag unless you run **Infra → Run workflow → apply**.
 
 ## Secrets (environment `prod`)
 
