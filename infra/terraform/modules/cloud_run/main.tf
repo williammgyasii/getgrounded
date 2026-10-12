@@ -1,4 +1,5 @@
 # Cost pins: scale to zero, max 2, 512Mi. Image is owned by API (dev) deploys.
+# Database: Neon Postgres via DATABASE_URL secret (no Cloud SQL socket).
 
 resource "google_cloud_run_v2_service" "api" {
   name     = "getgrounded-dev-api"
@@ -18,13 +19,6 @@ resource "google_cloud_run_v2_service" "api" {
     scaling {
       min_instance_count = 0
       max_instance_count = 2
-    }
-
-    volumes {
-      name = "cloudsql"
-      cloud_sql_instance {
-        instances = [var.sql_connection_name]
-      }
     }
 
     containers {
@@ -55,6 +49,11 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
+        name  = "FIREBASE_PROJECT_ID"
+        value = "get-ground-448ca"
+      }
+
+      env {
         name = "DATABASE_URL"
         value_source {
           secret_key_ref {
@@ -72,11 +71,6 @@ resource "google_cloud_run_v2_service" "api" {
             version = "latest"
           }
         }
-      }
-
-      env {
-        name  = "ELEVENLABS_AGENT_ID"
-        value = "agent_1601m0y7h0mxer8rpc06xrvcpn69"
       }
 
       env {
@@ -110,23 +104,13 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
-        name  = "GOOGLE_CLOUD_PROJECT"
-        value = "get-ground-448ca"
-      }
-
-      env {
-        name  = "GOOGLE_CLOUD_LOCATION"
-        value = "us-central1"
-      }
-
-      env {
-        name  = "VERTEX_MODEL"
-        value = "gemini-2.5-flash"
-      }
-
-      volume_mounts {
-        name       = "cloudsql"
-        mount_path = "/cloudsql"
+        name = "OPENAI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.openai_api_key_secret_id
+            version = "latest"
+          }
+        }
       }
     }
   }

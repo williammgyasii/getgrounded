@@ -1,5 +1,6 @@
-# Cost pins: shared-core micro, zonal (not HA), 10 GB. Do not add a tier
-# variable — a REGIONAL / larger machine would blow the $50 envelope.
+# RETIRED — dev and Cloud Run now use Neon Postgres (DATABASE_URL secret).
+# This module is kept so existing state can be destroyed in a controlled apply.
+# Before destroy: disable deletion_protection on the instance in GCP Console.
 
 resource "google_sql_database_instance" "main" {
   name             = "${var.name_prefix}-${var.environment}"

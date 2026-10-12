@@ -16,25 +16,19 @@ module "dns" {
   hostname = "dev"
 }
 
-module "sql" {
-  source      = "../../modules/sql"
-  environment = local.environment
-  name_prefix = local.name_prefix
-}
-
 module "secret" {
   source = "../../modules/secret"
 }
 
 module "cloud_run" {
   source                         = "../../modules/cloud_run"
-  sql_connection_name            = module.sql.connection_name
   database_url_secret_id         = module.secret.database_url_secret_id
   elevenlabs_api_key_secret_id   = module.secret.elevenlabs_api_key_secret_id
   r2_account_id                  = "e23518956f08ff35812d9ab001a39880"
   r2_bucket                      = module.r2.bucket_name
   r2_access_key_id_secret_id     = module.secret.r2_access_key_id_secret_id
   r2_secret_access_key_secret_id = module.secret.r2_secret_access_key_secret_id
+  openai_api_key_secret_id       = module.secret.openai_api_key_secret_id
 }
 
 module "wif" {
@@ -51,8 +45,4 @@ module "firebase" {
     google      = google
     google-beta = google-beta
   }
-}
-
-module "vertex" {
-  source = "../../modules/vertex"
 }

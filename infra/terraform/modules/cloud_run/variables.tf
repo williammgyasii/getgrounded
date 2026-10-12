@@ -1,10 +1,5 @@
-variable "sql_connection_name" {
-  description = "project:region:instance for Cloud SQL"
-  type        = string
-}
-
 variable "database_url_secret_id" {
-  description = "Secret Manager id, not the password"
+  description = "Secret Manager id for Neon DATABASE_URL, not the connection string"
   type        = string
 }
 
@@ -30,5 +25,10 @@ variable "r2_access_key_id_secret_id" {
 
 variable "r2_secret_access_key_secret_id" {
   description = "Secret Manager id for the R2 secret key, not the key"
+  type        = string
+}
+
+variable "openai_api_key_secret_id" {
+  description = "Secret Manager id for OpenAI extract, not the key"
   type        = string
 }
