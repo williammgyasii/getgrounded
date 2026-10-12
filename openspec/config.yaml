@@ -1,0 +1,37 @@
+schema: spec-driven
+
+context: |
+  GetGrounded — voice journaling app. API rebuild on branch `rebuild-api`.
+
+  Stack: .NET (Api, Application, Domain, Infrastructure, Tests), Expo mobile, Postgres, Firebase Auth.
+
+  Architecture: Volatility-driven design (VDD). Folders are volatility rooms (Identity, Book, Hear, …).
+  Naming: *Controller (HTTP), *Manager (workflow), *Engine (policy), I*Accessor (port), *Accessor (adapter).
+
+  Docs: docs/architecture/vdd-map.md, docs/FEATURES.md (product), docs/superpowers/specs/ (historical designs).
+
+  Identity slice is green: GET /me, AuthManager, AuthEngine, stub accessors. Spec: openspec/specs/identity/spec.md.
+
+  Workflow: TDD, small chunks, plan before code. Do not commit unless asked.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
