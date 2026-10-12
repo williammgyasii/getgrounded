@@ -189,7 +189,7 @@ User, UserSettings, DailyCheckIn, VoiceSession, Commitment, Accomplishment, Rout
 - Audio retention: delete after transcription (default for daily logs), 30 days, or keep. Exceptions: goal-why, partner drops, user-saved.
 - Never log transcripts to Analytics, Crashlytics, app logs, Cloudflare, or Sentry. Log ids, stage, duration, error code.
 - Twilio webhooks later: raw body, signature, timestamp, dedupe, idempotent.
-- Rate-limit: voice/agent start, calls, extraction, upload, login, reset, weekly generate.
+- Rate-limit: **Worker** global cap (2400/min per CF location, before container); **API** per authenticated user on `/me`, book read/write, voice hear/upload, extract/clarify, speak, clip download; `/health` by IP in .NET. Response `429` with `{ "error": "rate_limit" }`. User policies in `RateLimitEngine`.
 - Entitlements checked on the server. Mobile claims are not enough.
 
 ---

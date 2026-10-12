@@ -2,6 +2,7 @@ using GetGrounded.Api.Http;
 using GetGrounded.Application.Book;
 using GetGrounded.Application.Hear;
 using GetGrounded.Application.Identity;
+using GetGrounded.Application.RateLimit;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GetGrounded.Api.Book;
@@ -10,6 +11,7 @@ namespace GetGrounded.Api.Book;
 [Route("days")]
 public sealed class DaysController(
     AuthManager auth,
+    RateLimitManager rateLimits,
     PlanMorningManager planMorning,
     MiddayUpdateManager middayUpdate,
     DeskManager desk,
@@ -19,15 +21,16 @@ public sealed class DaysController(
     [HttpGet("today")]
     public async Task<IActionResult> Today([FromQuery] string timezone, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.Read, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         try
         {
-            return Ok(await desk.LoadAsync(user.Id, timezone, cancellationToken));
+            return Ok(await desk.LoadAsync(user!.Id, timezone, cancellationToken));
         }
         catch (ArgumentException ex)
         {
@@ -38,15 +41,16 @@ public sealed class DaysController(
     [HttpGet]
     public async Task<IActionResult> History([FromQuery] string timezone, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.Read, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         try
         {
-            return Ok(await history.ListAsync(user.Id, timezone, cancellationToken));
+            return Ok(await history.ListAsync(user!.Id, timezone, cancellationToken));
         }
         catch (ArgumentException ex)
         {
@@ -57,10 +61,11 @@ public sealed class DaysController(
     [HttpPost("morning")]
     public async Task<IActionResult> Morning([FromBody] MorningRequest body, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.Write, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         try
@@ -84,7 +89,7 @@ public sealed class DaysController(
             }
 
             return Ok(await planMorning.SaveAsync(
-                user.Id,
+                user!.Id,
                 body.Timezone,
                 body.Transcript,
                 items,
@@ -120,10 +125,11 @@ public sealed class DaysController(
     [HttpPost("midday")]
     public async Task<IActionResult> Midday([FromBody] MiddayRequest body, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.Write, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         if (!Guid.TryParse(body.DayId, out var dayId))
@@ -148,7 +154,7 @@ public sealed class DaysController(
                 .ToList();
 
             return Ok(await middayUpdate.ApplyAsync(
-                user.Id,
+                user!.Id,
                 dayId,
                 body.Timezone,
                 body.Transcript,
@@ -172,15 +178,16 @@ public sealed class DaysController(
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.Write, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         try
         {
-            await dayEdit.DeleteDayAsync(user.Id, id, cancellationToken);
+            await dayEdit.DeleteDayAsync(user!.Id, id, cancellationToken);
             return NoContent();
         }
         catch (BookDayNotFoundException)
@@ -192,15 +199,16 @@ public sealed class DaysController(
     [HttpPatch("{id:guid}")]
     public async Task<IActionResult> Rename(Guid id, [FromBody] RenameRequest body, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.Write, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         try
         {
-            return Ok(await dayEdit.RenameDayAsync(user.Id, id, body.Title, cancellationToken));
+            return Ok(await dayEdit.RenameDayAsync(user!.Id, id, body.Title, cancellationToken));
         }
         catch (BookDayNotFoundException)
         {
@@ -218,15 +226,16 @@ public sealed class DaysController(
         [FromBody] MarkCommitmentRequest body,
         CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.Write, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         try
         {
-            return Ok(await dayEdit.SetCommitmentStatusAsync(user.Id, id, body.Status, cancellationToken));
+            return Ok(await dayEdit.SetCommitmentStatusAsync(user!.Id, id, body.Status, cancellationToken));
         }
         catch (BookCommitmentNotFoundException)
         {
@@ -241,15 +250,16 @@ public sealed class DaysController(
     [HttpDelete("commitments/{id:guid}")]
     public async Task<IActionResult> DeleteCommitment(Guid id, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.Write, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         try
         {
-            return Ok(await dayEdit.DeleteCommitmentAsync(user.Id, id, cancellationToken));
+            return Ok(await dayEdit.DeleteCommitmentAsync(user!.Id, id, cancellationToken));
         }
         catch (BookCommitmentNotFoundException)
         {

@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { Hono } from "hono";
+import { enforceGlobalRateLimit } from "./global-rate-limit";
 
 const PORT = 8080;
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
@@ -99,8 +100,16 @@ export class GetGroundedApiContainer extends DurableObject<Env> {
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.use("*", async (c, next) => {
+	const allowed = await enforceGlobalRateLimit(c.env.GLOBAL_RATE_LIMITER);
+	if (!allowed) {
+		return c.json({ error: "rate_limit" }, 429);
+	}
+	await next();
+});
+
 app.all("*", (c) =>
-  c.env.GETGROUNDED_API.getByName(CONTAINER_NAME).fetch(c.req.raw),
+	c.env.GETGROUNDED_API.getByName(CONTAINER_NAME).fetch(c.req.raw),
 );
 
 app.onError((error, c) => {

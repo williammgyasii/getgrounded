@@ -2,6 +2,7 @@ using GetGrounded.Application.Book;
 using GetGrounded.Application.Hear;
 using GetGrounded.Infrastructure.Hear;
 using GetGrounded.Application.Identity;
+using GetGrounded.Application.RateLimit;
 using GetGrounded.Application.Time;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -19,7 +20,8 @@ internal static class TestFactory
         IClock? clock = null,
         ISpeechToTextAccessor? speech = null,
         IAudioClipAccessor? audio = null,
-        IPlanExtractAccessor? extract = null)
+        IPlanExtractAccessor? extract = null,
+        IRateLimitStore? rateLimits = null)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -42,6 +44,10 @@ internal static class TestFactory
                 }
 
                 Replace(services, extract ?? new StubPlanExtractAccessor());
+                if (rateLimits is not null)
+                {
+                    Replace(services, rateLimits);
+                }
                 foreach (var descriptor in services.Where(item => item.ServiceType == typeof(IMiddayExtractAccessor)).ToList())
                 {
                     services.Remove(descriptor);

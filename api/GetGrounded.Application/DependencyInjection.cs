@@ -1,6 +1,7 @@
 using GetGrounded.Application.Book;
 using GetGrounded.Application.Hear;
 using GetGrounded.Application.Identity;
+using GetGrounded.Application.RateLimit;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GetGrounded.Application;
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddSingleton<MuseVoiceManager>();
         services.AddSingleton<HearManager>();
         services.AddSingleton<VoiceClipManager>();
+        services.AddSingleton<RateLimitManager>();
         return services;
     }
 }

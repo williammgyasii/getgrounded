@@ -1,4 +1,5 @@
 interface Env {
+  GLOBAL_RATE_LIMITER: RateLimit;
   GETGROUNDED_API: DurableObjectNamespace<
     import("./src/index").GetGroundedApiContainer
   >;

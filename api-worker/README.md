@@ -4,6 +4,8 @@ Proxies `https://api.get-grounded.app` to the **.NET** image built from [`../api
 
 Firebase auth stays on the phone; the container reads `DATABASE_URL`, `FIREBASE_PROJECT_ID`, and hear/extract secrets from Worker secrets.
 
+**Global rate limit:** every request hits `GLOBAL_RATE_LIMITER` (Wrangler `ratelimits` binding, key `global`) before the container — **2400 req / 60s per Cloudflare location**. Over limit → `429` `{ "error": "rate_limit" }` (container not started). Per-user limits still apply inside .NET. See [Cloudflare Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
+
 ## One-time secrets (production)
 
 From repo root, with `~/.config/cloudflare/env` loaded:

@@ -6,6 +6,8 @@ using GetGrounded.Infrastructure.Book;
 using GetGrounded.Infrastructure.Data;
 using GetGrounded.Infrastructure.Hear;
 using GetGrounded.Infrastructure.Identity;
+using GetGrounded.Application.RateLimit;
+using GetGrounded.Infrastructure.RateLimit;
 using GetGrounded.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -20,6 +22,7 @@ public static class DependencyInjection
         services.AddHttpClient("elevenlabs");
         services.AddHttpClient("openai");
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IRateLimitStore, MemoryRateLimitStore>();
         RegisterHear(services, configuration);
 
         var databaseUrl = configuration["DATABASE_URL"];

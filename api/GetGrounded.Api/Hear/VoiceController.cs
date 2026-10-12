@@ -2,6 +2,7 @@ using GetGrounded.Api.Http;
 using GetGrounded.Application.Book;
 using GetGrounded.Application.Hear;
 using GetGrounded.Application.Identity;
+using GetGrounded.Application.RateLimit;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GetGrounded.Api.Hear;
@@ -10,6 +11,7 @@ namespace GetGrounded.Api.Hear;
 [Route("voice")]
 public sealed class VoiceController(
     AuthManager auth,
+    RateLimitManager rateLimits,
     PlanExtractManager extract,
     MiddayExtractManager middayExtract,
     PlanClarifyManager clarify,
@@ -20,13 +22,14 @@ public sealed class VoiceController(
     [HttpGet("clips/{sessionId:guid}")]
     public async Task<IActionResult> GetClip(Guid sessionId, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.VoiceClip, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
-        var clip = await clips.LoadSessionAsync(user.Id, sessionId, cancellationToken);
+        var clip = await clips.LoadSessionAsync(user!.Id, sessionId, cancellationToken);
         if (clip is null)
         {
             return NotFound();
@@ -39,10 +42,11 @@ public sealed class VoiceController(
     [HttpPost("hear")]
     public async Task<IActionResult> Hear(CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.VoiceUpload, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         var clip = await ReadAudioAsync(cancellationToken);
@@ -53,7 +57,7 @@ public sealed class VoiceController(
 
         try
         {
-            var heard = await hear.HearAsync(user.Id, clip, cancellationToken);
+            var heard = await hear.HearAsync(user!.Id, clip, cancellationToken);
             return Ok(new { transcript = heard.Transcript, storageKey = heard.StorageKey, words = heard.Words });
         }
         catch (ArgumentException ex)
@@ -77,10 +81,11 @@ public sealed class VoiceController(
     [HttpPost("clarify")]
     public async Task<IActionResult> Clarify([FromBody] ExtractRequest body, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.VoiceLlm, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         if (body.Kind is not "MORNING_PLAN")
@@ -145,10 +150,11 @@ public sealed class VoiceController(
     [HttpPost("speak")]
     public async Task<IActionResult> Speak([FromBody] SpeakRequest body, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.VoiceSpeak, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         try
@@ -169,10 +175,11 @@ public sealed class VoiceController(
     [HttpPost("extract")]
     public async Task<IActionResult> Extract([FromBody] ExtractRequest body, CancellationToken cancellationToken)
     {
-        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
-        if (user is null)
+        var (user, rejection) = await AuthGate.AuthorizeAsync(
+            Request, auth, rateLimits, RateLimitBucket.VoiceLlm, cancellationToken);
+        if (rejection is not null)
         {
-            return Unauthorized();
+            return rejection;
         }
 
         if (body.Kind is not "MORNING_PLAN" and not "EVENING_REFLECTION" and not "MIDDAY_UPDATE")
@@ -194,7 +201,7 @@ public sealed class VoiceController(
 
             try
             {
-                var draft = await middayExtract.ExtractAsync(user.Id, dayId, body.Transcript, cancellationToken);
+                var draft = await middayExtract.ExtractAsync(user!.Id, dayId, body.Transcript, cancellationToken);
                 return Ok(new
                 {
                     add = draft.Add.Select(item => new
