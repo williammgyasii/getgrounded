@@ -1,16 +1,18 @@
 import { type Href, router, useFocusEffect } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuthUser } from '@/components/auth/auth-session';
 import { HomeTopBar } from '@/components/home/home-top-bar';
+import { TodayMuseCard } from '@/components/home/today-muse-card';
 import { EveningSheet } from '@/components/talk/evening-sheet';
 import { PageWait } from '@/components/talk/page-wait';
 import { ReflectCue } from '@/components/talk/reflect-cue';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
+import { PlanBlue } from '@/constants/plan-theme';
+import { MaxContentWidth, Spacing, Surface, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone } from '@/lib/api';
 import {
@@ -25,6 +27,7 @@ import { getFirebaseAuth } from '@/lib/firebase';
 import { type DayRecord } from '@/lib/api';
 import { useReflectOpen, useReflectToday } from '@/lib/reflect-settings';
 import { openReflectDays } from '@/lib/reflect-window';
+import { loadPlanAssistant, type PlanAssistant } from '@/lib/plan-assistant';
 import { useGetDeskQuery, useGetHistoryQuery } from '@/store/api';
 
 function weekdayDate(now = new Date()): string {
@@ -59,6 +62,11 @@ export default function HomeScreen() {
     : history;
   const openNights = openReflectDays(book, reflectToday);
   const [recover, setRecover] = useState<DayRecord | null>(null);
+  const [assistant, setAssistant] = useState<PlanAssistant | null>(null);
+
+  useEffect(() => {
+    void loadPlanAssistant().then(setAssistant);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -92,7 +100,7 @@ export default function HomeScreen() {
   const streak = desk?.streakDays ?? 0;
 
   return (
-    <ThemedView style={styles.screen}>
+    <ThemedView style={[styles.screen, { backgroundColor: Surface }]}>
       <HomeTopBar
         title={title}
         subtitle={weekdayDate()}
@@ -106,10 +114,17 @@ export default function HomeScreen() {
           visible={inWindow && openNights.length > 0}
           onPress={() => setRecover(openNights[0] ?? null)}
         />
+        {today?.coachNote?.trim() && assistant ? (
+          <TodayMuseCard
+            assistant={assistant}
+            coachNote={today.coachNote}
+            dayTitle={today.title}
+          />
+        ) : null}
         <View style={styles.week}>
           {week.map((day) => (
             <View key={day.key} style={styles.weekDay}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="caption" themeColor="textSecondary">
                 {day.label}
               </ThemedText>
               <View
@@ -117,15 +132,17 @@ export default function HomeScreen() {
                   styles.weekDot,
                   {
                     backgroundColor: day.today
-                      ? theme.accent
+                      ? PlanBlue.primary
                       : day.showedUp
-                        ? theme.primary
+                        ? PlanBlue.mid
                         : theme.backgroundElement,
                   },
                 ]}>
                 <ThemedText
-                  type="smallBold"
-                  style={{ color: day.today || day.showedUp ? '#FFFFFF' : theme.text }}>
+                  type="caption"
+                  style={{
+                    color: day.today ? PlanBlue.on : day.showedUp ? PlanBlue.on : theme.text,
+                  }}>
                   {day.date}
                 </ThemedText>
               </View>
@@ -134,19 +151,19 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.stats}>
-          <View style={[styles.ringCard, { backgroundColor: theme.accent }]}>
+          <View style={[styles.ringCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <ThemedText style={styles.ringValue}>{score}%</ThemedText>
-            <ThemedText type="small" style={styles.onAccent}>
+            <ThemedText type="caption" themeColor="textSecondary">
               Consistency
             </ThemedText>
-            <ThemedText type="small" style={styles.onAccent}>
+            <ThemedText type="caption" themeColor="textSecondary">
               {week.filter((day) => day.showedUp).length} of 7 days
             </ThemedText>
           </View>
           <View style={styles.statCol}>
             <View style={[styles.stat, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <ThemedText style={styles.statValue}>{streak}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="caption" themeColor="textSecondary">
                 Day streak
               </ThemedText>
             </View>
@@ -154,7 +171,7 @@ export default function HomeScreen() {
               <ThemedText style={styles.statValue}>
                 {progress.done}/{progress.total || 0}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="caption" themeColor="textSecondary">
                 Done today
               </ThemedText>
             </View>
@@ -162,7 +179,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <ThemedText type="smallBold">This week</ThemedText>
+          <ThemedText type="caption">This week</ThemedText>
           <View style={styles.bars}>
             {week.map((day) => {
               const ratio = day.planned === 0 ? (day.showedUp ? 0.35 : 0.08) : Math.max(0.12, day.done / day.planned);
@@ -174,12 +191,12 @@ export default function HomeScreen() {
                         styles.barFill,
                         {
                           height: `${Math.round(ratio * 100)}%`,
-                          backgroundColor: day.today ? theme.accent : theme.primary,
+                          backgroundColor: day.today ? PlanBlue.primary : PlanBlue.primary,
                         },
                       ]}
                     />
                   </View>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="caption" themeColor="textSecondary">
                     {day.label}
                   </ThemedText>
                 </View>
@@ -189,7 +206,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <ThemedText type="smallBold">Last 28 days</ThemedText>
+          <ThemedText type="caption">Last 28 days</ThemedText>
           <View style={styles.heat}>
             {heat.map((cell) => (
               <View
@@ -201,10 +218,10 @@ export default function HomeScreen() {
                       cell.level === 0
                         ? theme.backgroundElement
                         : cell.level === 1
-                          ? '#A8B6F5'
+                          ? PlanBlue.soft
                           : cell.level === 2
-                            ? '#6B82F0'
-                            : theme.accent,
+                            ? PlanBlue.mid
+                            : PlanBlue.primary,
                   },
                 ]}
               />
@@ -214,11 +231,11 @@ export default function HomeScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.navigate('/history' as Href)}
+          onPress={() => router.navigate('/talk' as Href)}
           style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <ThemedText type="smallBold">{today?.title ?? 'No plan yet'}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {today ? 'Open today’s tasks' : 'Speak the day from Plan'}
+          <ThemedText type="caption">{today?.title ?? 'No plan yet'}</ThemedText>
+          <ThemedText type="caption" themeColor="textSecondary">
+            {today ? 'View or edit on Plan' : 'Build your day on Plan'}
           </ThemedText>
         </Pressable>
       </ScrollView>
@@ -262,19 +279,14 @@ const styles = StyleSheet.create({
   },
   ringCard: {
     flex: 1.1,
+    borderWidth: 1,
     borderRadius: 16,
     padding: Spacing.four,
     justifyContent: 'center',
     gap: 4,
   },
   ringValue: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 40,
-    lineHeight: 44,
-    color: '#FFFFFF',
-  },
-  onAccent: {
-    color: '#FFFFFF',
+    ...Typography.statLarge,
   },
   statCol: {
     flex: 1,
@@ -288,9 +300,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statValue: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 24,
-    lineHeight: 30,
+    ...Typography.stat,
   },
   card: {
     borderWidth: 1,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Typography, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clockLabel } from '@/lib/clock';
 import { statusLabel } from '@/lib/day-tasks';
@@ -141,8 +141,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   title: {
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
+    ...Typography.bodyMedium,
     lineHeight: 22,
   },
   time: {
@@ -168,6 +167,6 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 10,
     lineHeight: 13,
-    fontFamily: FontFamily.medium,
+    fontFamily: Typography.bodyMedium.fontFamily,
   },
 });

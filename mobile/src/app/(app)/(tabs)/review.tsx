@@ -7,13 +7,15 @@ import { HomeTopBar } from '@/components/home/home-top-bar';
 import { PageWait } from '@/components/talk/page-wait';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { Typography, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone } from '@/lib/api';
 import { longDayLabel } from '@/lib/day-tasks';
 import { useGetReviewQuery } from '@/store/api';
 
-const ClosedInk = '#2F4A3C';
+import { PlanBlue } from '@/constants/plan-theme';
+
+const ClosedInk = PlanBlue.deep;
 
 function initialFrom(email: string | null | undefined): string {
   const local = email?.split('@')[0]?.trim();
@@ -57,11 +59,13 @@ export default function ReviewScreen() {
         ) : (
           <>
             <View style={[styles.score, { backgroundColor: ClosedInk }]}>
-              <ThemedText style={styles.percent}>{review.followThrough}%</ThemedText>
-              <ThemedText type="small" style={styles.onScore}>
+              <ThemedText style={[styles.percent, { color: theme.primaryOn }]}>
+                {review.followThrough}%
+              </ThemedText>
+              <ThemedText type="caption" style={{ color: theme.primaryOn }}>
                 Follow-through
               </ThemedText>
-              <ThemedText type="small" style={styles.onScore}>
+              <ThemedText type="caption" style={{ color: theme.primaryOn }}>
                 {review.closedNights} closed night{review.closedNights === 1 ? '' : 's'} · {review.planned}{' '}
                 planned
               </ThemedText>
@@ -134,13 +138,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   percent: {
-    color: '#FFFFFF',
-    fontFamily: FontFamily.bold,
-    fontSize: 44,
-    lineHeight: 52,
-  },
-  onScore: {
-    color: '#FFFFFF',
+    ...Typography.score,
   },
   stats: {
     flexDirection: 'row',
@@ -155,9 +153,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statValue: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 20,
-    lineHeight: 26,
+    ...Typography.title, fontSize: 20, lineHeight: 26,
   },
   card: {
     borderWidth: 1,
@@ -167,12 +163,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   nightTitle: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 18,
-    lineHeight: 24,
+    ...Typography.title, fontSize: 18, lineHeight: 24,
   },
   copy: {
-    fontSize: 16,
-    lineHeight: 24,
+    ...Typography.body,
   },
 });

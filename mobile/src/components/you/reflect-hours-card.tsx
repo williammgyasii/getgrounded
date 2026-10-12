@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clockLabel, dateFromMinute } from '@/lib/clock';
 import { useReflectHours, useReflectOpen } from '@/lib/reflect-settings';
@@ -157,13 +157,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   chipTime: {
+    ...Typography.title,
     fontSize: 20,
     lineHeight: 26,
   },
   scrim: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(36, 48, 86, 0.35)',
+    backgroundColor: 'rgba(28, 25, 21, 0.35)',
   },
   dismiss: {
     flex: 1,

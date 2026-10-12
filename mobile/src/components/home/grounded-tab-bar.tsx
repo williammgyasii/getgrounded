@@ -1,33 +1,23 @@
 import { type Href, router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { PlanBlue } from '@/constants/plan-theme';
+import { PlanSurface } from '@/constants/plan-surface';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 
 type GroundedTabBarProps = {
   state: { index: number; routes: { name: string }[] };
 };
 
 const todayIcon = { ios: 'house.fill', android: 'home', web: 'home' } as const;
-const historyIcon = { ios: 'checklist', android: 'checklist', web: 'checklist' } as const;
-const reviewIcon = { ios: 'chart.bar.fill', android: 'bar_chart', web: 'bar_chart' } as const;
+const planIcon = { ios: 'waveform.circle.fill', android: 'graphic_eq', web: 'graphic_eq' } as const;
 const youIcon = { ios: 'person.fill', android: 'person', web: 'person' } as const;
 
 export function GroundedTabBar({ state }: GroundedTabBarProps) {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const current = state.routes[state.index]?.name;
 
   return (
@@ -36,28 +26,20 @@ export function GroundedTabBar({ state }: GroundedTabBarProps) {
         styles.bar,
         {
           paddingBottom: Math.max(insets.bottom, Spacing.two),
-          backgroundColor: theme.inputBackground,
-          borderTopColor: theme.border,
         },
       ]}>
       <TabItem
-        label="Home"
+        label="Today"
         focused={current === 'today'}
         icon={todayIcon}
         onPress={() => router.navigate('/today' as Href)}
       />
       <TabItem
-        label="Tasks"
-        focused={current === 'history'}
-        icon={historyIcon}
-        onPress={() => router.navigate('/history' as Href)}
-      />
-      <RaisedTalk focused={current === 'talk'} onPress={() => router.navigate('/talk' as Href)} />
-      <TabItem
-        label="Review"
-        focused={current === 'review'}
-        icon={reviewIcon}
-        onPress={() => router.navigate('/review' as Href)}
+        label="Plan"
+        focused={current === 'talk'}
+        icon={planIcon}
+        accent
+        onPress={() => router.navigate('/talk' as Href)}
       />
       <TabItem
         label="You"
@@ -73,95 +55,31 @@ function TabItem({
   label,
   focused,
   icon,
+  accent,
   onPress,
 }: {
   label: string;
   focused: boolean;
-  icon: typeof todayIcon | typeof historyIcon | typeof reviewIcon | typeof youIcon;
+  icon: typeof todayIcon;
+  accent?: boolean;
   onPress: () => void;
 }) {
-  const theme = useTheme();
-  const color = focused ? theme.accent : theme.textSecondary;
+  const color = focused ? (accent ? PlanBlue.primary : PlanSurface.text) : PlanSurface.textMuted;
+  const iconSize = accent ? 26 : 24;
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ selected: focused }}
       accessibilityLabel={label}
       android_ripple={{ color: 'transparent' }}
       onPress={onPress}
       style={styles.item}>
-      <View
-        style={[
-          styles.iconWrap,
-          focused && { borderColor: theme.accent },
-        ]}>
-        <SymbolView name={icon} size={22} tintColor={color} />
-      </View>
-      <ThemedText type="small" style={[styles.label, { color }]}>
+      <SymbolView name={icon} size={iconSize} tintColor={color} />
+      <ThemedText type="tabLabel" style={{ color }}>
         {label}
       </ThemedText>
     </Pressable>
-  );
-}
-
-function RaisedTalk({ focused, onPress }: { focused: boolean; onPress: () => void }) {
-  const theme = useTheme();
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    if (focused) {
-      scale.value = withRepeat(
-        withSequence(withTiming(1.08, { duration: 700 }), withTiming(1, { duration: 700 })),
-        -1,
-        true,
-      );
-      return;
-    }
-
-    scale.value = withSpring(1);
-  }, [focused, scale]);
-
-  const bulge = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <View style={styles.talkSlot}>
-      <Animated.View style={bulge}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Plan"
-          onPressIn={() => {
-            scale.value = withSpring(0.92);
-          }}
-          onPressOut={() => {
-            scale.value = focused
-              ? withRepeat(
-                  withSequence(withTiming(1.08, { duration: 700 }), withTiming(1, { duration: 700 })),
-                  -1,
-                  true,
-                )
-              : withSpring(1);
-          }}
-          onPress={onPress}
-          style={[
-            styles.mic,
-            {
-              backgroundColor: theme.primary,
-              shadowColor: theme.text,
-            },
-          ]}>
-          <SymbolView
-            name={{ ios: 'mic.fill', android: 'mic', web: 'mic' }}
-            size={30}
-            tintColor={theme.primaryOn}
-          />
-        </Pressable>
-      </Animated.View>
-      <ThemedText type="small" style={[styles.label, { color: focused ? theme.accent : theme.textSecondary }]}>
-        Plan
-      </ThemedText>
-    </View>
   );
 }
 
@@ -170,43 +88,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-around',
-    paddingTop: Spacing.three,
+    paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: PlanSurface.borderSoft,
+    backgroundColor: PlanSurface.bgDeep,
+    minHeight: 49,
   },
   item: {
     flex: 1,
     alignItems: 'center',
     gap: 4,
     paddingBottom: Spacing.one,
-  },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    alignItems: 'center',
+    minHeight: 44,
     justifyContent: 'center',
-  },
-  label: {
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  talkSlot: {
-    width: 76,
-    alignItems: 'center',
-    gap: 4,
-    marginTop: -28,
-  },
-  mic: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
   },
 });

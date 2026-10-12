@@ -1,7 +1,7 @@
 import { ActivityIndicator, Modal, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Radius, Spacing } from '@/constants/theme';
+import { Typography, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function BusyLock({ message }: { message: string | null }) {
@@ -50,9 +50,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   message: {
-    fontFamily: FontFamily.medium,
-    fontSize: 15,
-    lineHeight: 22,
+    ...Typography.bodySmall, fontFamily: Typography.bodyMedium.fontFamily,
     textAlign: 'center',
   },
 });

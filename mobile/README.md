@@ -1,56 +1,70 @@
-# Welcome to your Expo app 👋
+# GetGrounded mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo SDK 57 with **expo-dev-client** (not Expo Go). Native modules: mic, speech recognition, Firebase.
 
-## Get started
+## Hot refresh (Fast Refresh)
 
-1. Install dependencies
+Fast Refresh needs **Metro running** and the **dev client** on your phone connected to it.
 
-   ```bash
-   npm install
-   ```
+**Wrong:** Phone open, no Metro → baked bundle; saves do nothing.  
+**Right:** Metro on your Mac (`--lan`) → phone loads JS over Wi‑Fi → saves hot-refresh.
 
-2. Start the app
+### Physical device (recommended)
 
-   ```bash
-   npx expo start
-   ```
+Phone and Mac on the **same Wi‑Fi**. USB helps the first install.
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+**1. Env** — copy `.env.example` → `.env` and set your Mac’s LAN IP:
 
 ```bash
-npm run reset-project
+ipconfig getifaddr en0
+# Put that IP in REACT_NATIVE_PACKAGER_HOSTNAME and EXPO_PUBLIC_API_URL
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+**2. Android — accept USB debugging** (if `adb devices` shows `unauthorized`):
 
-### Other setup steps
+Unlock the phone → tap **Allow USB debugging** on the prompt.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+**3. Terminal 1 — Metro (leave running):**
 
-## Learn more
+```bash
+cd mobile
+npm start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+**4. Terminal 2 — install dev client (first time or after native dep changes):**
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+cd mobile
+npm run android:device   # Android
+# npm run ios:device     # iPhone (USB, trusted, Developer Mode on)
+```
 
-## Join the community
+**Android build needs JDK 17**, not 26. If Gradle fails on `jlink` / `androidJdkImage`:
 
-Join our community of developers creating universal apps.
+```bash
+brew install openjdk@17
+# gradle.properties already pins org.gradle.java.home for Homebrew
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**5. Reload on device:** shake phone → **Reload**, confirm **Fast Refresh** is on.
+
+If LAN is blocked (guest Wi‑Fi), use tunnel instead: `npx expo start --dev-client --port 8080 --tunnel`
+
+### Simulator fallback
+
+```bash
+npm run ios:sim
+```
+
+## Env
+
+`RCT_METRO_PORT=8080` must match `package.json`. Restart Metro after any `.env` change.
+
+## Path with spaces
+
+If `expo run:ios` fails on `Personal Projects/` in the path, work from the symlink:
+
+```bash
+cd ~/GetGroundedApp/mobile
+npm run ios:sim
+```

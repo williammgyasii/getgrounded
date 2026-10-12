@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type HomeTopBarProps = {
@@ -44,7 +44,7 @@ export function HomeTopBar({ title, subtitle, initial, onAvatarPress, onBack }: 
       ) : null}
       <View style={styles.copy}>
         <ThemedText style={styles.title}>{title}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="caption" themeColor="textSecondary">
           {subtitle}
         </ThemedText>
       </View>
@@ -54,7 +54,7 @@ export function HomeTopBar({ title, subtitle, initial, onAvatarPress, onBack }: 
         onPress={onAvatarPress}
         style={[styles.avatar, { backgroundColor: theme.accent }]}>
         {initial ? (
-          <ThemedText type="smallBold" style={{ color: theme.primaryOn }}>
+          <ThemedText type="caption" style={{ color: theme.primaryOn }}>
             {initial}
           </ThemedText>
         ) : (
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.three,
   },
   title: {
-    fontFamily: FontFamily.semibold,
+    ...Typography.headline,
     fontSize: 22,
     lineHeight: 28,
     letterSpacing: -0.3,

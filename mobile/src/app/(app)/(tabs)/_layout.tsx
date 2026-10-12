@@ -13,9 +13,9 @@ export default function AppTabsLayout() {
         sceneStyle: { backgroundColor: Colors.light.background },
       }}>
       <Tabs.Screen name="today" />
-      <Tabs.Screen name="history" />
+      <Tabs.Screen name="history" options={{ href: null }} />
       <Tabs.Screen name="talk" />
-      <Tabs.Screen name="review" />
+      <Tabs.Screen name="review" options={{ href: null }} />
       <Tabs.Screen name="you" />
       <Tabs.Screen name="home" options={{ href: null }} />
     </Tabs>

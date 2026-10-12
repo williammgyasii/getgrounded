@@ -1,7 +1,7 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Typography, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function PageWait() {
@@ -23,8 +23,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.six,
   },
   copy: {
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
-    lineHeight: 24,
+    ...Typography.bodyMedium,
   },
 });

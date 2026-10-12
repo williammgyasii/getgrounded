@@ -40,6 +40,7 @@ export type DayRecord = {
   timezone: string;
   showedUp: boolean;
   title: string | null;
+  coachNote?: string | null;
   commitments: CommitmentRecord[];
   wins: WinRecord[];
   clips?: ClipRecord[];
@@ -47,12 +48,31 @@ export type DayRecord = {
 
 export type MorningDraft = {
   title: string | null;
+  coachNote?: string | null;
   commitments: {
     title: string;
     plannedDurationMinutes: number | null;
     plannedStartMinute?: number | null;
     lifeArea?: string | null;
   }[];
+};
+
+export type ClarifyQuestion = {
+  id: string;
+  prompt: string;
+  topic?: string | null;
+};
+
+export type ClarifyExchange = {
+  questionId: string;
+  prompt: string;
+  answer: string;
+};
+
+export type PlanClarifyResult = {
+  museLine: string;
+  complete?: boolean;
+  questions: ClarifyQuestion[];
 };
 
 export type EveningDraft = {

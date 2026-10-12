@@ -16,7 +16,7 @@ import { PlanSortList } from '@/components/talk/plan-sort-list';
 import { PillButton } from '@/components/auth/pill-button';
 import { useTalkTake } from '@/components/talk/use-talk-take';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Typography, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone, type SpokenWord } from '@/lib/api';
 import { ClipRecord } from '@/lib/clip-record';
@@ -317,9 +317,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 20,
-    lineHeight: 26,
+    ...Typography.title, fontSize: 20, lineHeight: 26,
   },
   words: {
     minHeight: 120,
@@ -329,8 +327,7 @@ const styles = StyleSheet.create({
   },
   wordsInput: {
     minHeight: 100,
-    fontFamily: FontFamily.regular,
-    fontSize: 16,
+    ...Typography.body,
     lineHeight: 24,
     textAlignVertical: 'top',
   },

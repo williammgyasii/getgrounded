@@ -19,20 +19,20 @@ export function areaLabel(area: string | null | undefined): string {
 export function areaTint(area: string | null | undefined): string {
   switch ((area ?? 'PERSONAL').toUpperCase()) {
     case 'HEALTH':
-      return '#FDA758';
+      return '#6B9B7A';
     case 'WORK':
-      return '#4C6FFF';
+      return '#2F4A3C';
     case 'LEARNING':
-      return '#7B8CFF';
+      return '#5A7A9B';
     case 'HOME':
-      return '#FEA800';
+      return '#B8906A';
     case 'RELATIONSHIPS':
-      return '#FF6767';
+      return '#C17B7B';
     case 'SPIRITUAL':
-      return '#1B237E';
+      return '#4A5568';
     case 'FINANCIAL':
-      return '#8B6E82';
+      return '#8B7B6B';
     default:
-      return '#FDA758';
+      return '#2F4A3C';
   }
 }

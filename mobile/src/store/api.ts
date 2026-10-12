@@ -8,6 +8,8 @@ import {
   type EveningDraft,
   type MiddayDraft,
   type MorningDraft,
+  type ClarifyExchange,
+  type PlanClarifyResult,
   type ReviewRecord,
   type SpokenWord,
 } from '@/lib/api';
@@ -68,6 +70,8 @@ export const groundedApi = createApi({
         title?: string | null;
         storageKey?: string | null;
         words?: SpokenWord[] | null;
+        localDate?: string;
+        coachNote?: string | null;
         commitments: {
           title: string;
           plannedDurationMinutes?: number | null;
@@ -76,10 +80,10 @@ export const groundedApi = createApi({
         }[];
       }
     >({
-      query: ({ timezone, transcript, title, storageKey, words, commitments }) => ({
+      query: ({ timezone, transcript, title, storageKey, words, localDate, coachNote, commitments }) => ({
         url: '/days/morning',
         method: 'POST',
-        body: { timezone, transcript, title, storageKey, words, commitments },
+        body: { timezone, transcript, title, storageKey, words, localDate, coachNote, commitments },
       }),
       invalidatesTags: ['Desk', 'History', 'Review'],
     }),
@@ -175,11 +179,42 @@ export const groundedApi = createApi({
       { transcript: string; storageKey?: string; words?: SpokenWord[] },
       { uri: string }
     >({
-      query: ({ uri }) => ({
-        url: '/voice/hear',
-        method: 'POST',
-        body: clipForm(uri),
-      }),
+      // RN often drops Authorization on multipart — attach the Bearer explicitly.
+      async queryFn({ uri }) {
+        const user = getFirebaseAuth().currentUser;
+        if (!user) {
+          return { error: { status: 401, data: { error: 'sign_in' } } };
+        }
+
+        const token = await user.getIdToken();
+        let response: Response;
+        try {
+          response = await fetch(`${apiUrl}/voice/hear`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: clipForm(uri),
+          });
+        } catch {
+          return { error: { status: 'FETCH_ERROR', error: 'network' } };
+        }
+
+        if (!response.ok) {
+          let data: unknown;
+          try {
+            data = await response.json();
+          } catch {
+            data = undefined;
+          }
+          return { error: { status: response.status, data } };
+        }
+
+        const data = (await response.json()) as {
+          transcript: string;
+          storageKey?: string;
+          words?: SpokenWord[];
+        };
+        return { data };
+      },
     }),
     getClip: build.query<ArrayBuffer, string>({
       query: (id) => ({
@@ -187,6 +222,25 @@ export const groundedApi = createApi({
         responseHandler: (response) => response.arrayBuffer(),
       }),
       keepUnusedDataFor: 0,
+    }),
+    clarifyMorning: build.mutation<
+      PlanClarifyResult,
+      { transcript: string; timezone: string; clarifications?: ClarifyExchange[] }
+    >({
+      query: ({ transcript, timezone, clarifications }) => ({
+        url: '/voice/clarify',
+        method: 'POST',
+        body: {
+          kind: 'MORNING_PLAN',
+          transcript,
+          timezone,
+          clarifications: clarifications?.map((row) => ({
+            questionId: row.questionId,
+            prompt: row.prompt,
+            answer: row.answer,
+          })),
+        },
+      }),
     }),
     extractMorning: build.mutation<
       MorningDraft,
@@ -334,6 +388,7 @@ export const {
   useUpdateMiddayMutation,
   useHearClipMutation,
   useLazyGetClipQuery,
+  useClarifyMorningMutation,
   useExtractMorningMutation,
   useExtractEveningMutation,
   useExtractMiddayMutation,

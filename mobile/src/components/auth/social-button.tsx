@@ -27,7 +27,7 @@ export function SocialButton({ label, icon, style, ...props }: SocialButtonProps
       ]}
       {...props}>
       <View style={styles.icon}>{icon}</View>
-      <ThemedText type="smallBold" style={styles.label}>
+      <ThemedText type="bodyMedium" style={styles.label}>
         {label}
       </ThemedText>
       <View style={styles.icon} />
@@ -54,7 +54,5 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 16,
-    lineHeight: 22,
   },
 });

@@ -6,22 +6,25 @@ export type StatusLook = {
   chipInk: string;
 };
 
+const cream = '#FAF7F1';
+const ink = '#1C1915';
+
 export function statusLook(status: string | null | undefined): StatusLook {
   switch ((status ?? '').toUpperCase()) {
     case 'COMPLETED':
-      return { rail: '#4C6FFF', wash: '#E4EBFA', mark: 'check', chip: '#4C6FFF', chipInk: '#FFFFFF' };
+      return { rail: '#2F4A3C', wash: '#DCE6DF', mark: 'check', chip: '#2F4A3C', chipInk: cream };
     case 'PARTIAL':
-      return { rail: '#FDA758', wash: '#FFF3E8', mark: 'minus', chip: '#FDA758', chipInk: '#FFFFFF' };
+      return { rail: '#8B7355', wash: '#F0EBE3', mark: 'minus', chip: '#8B7355', chipInk: cream };
     case 'MISSED':
-      return { rail: '#8B7394', wash: '#F3F0F4', mark: 'xmark', chip: '#8B7394', chipInk: '#FFFFFF' };
+      return { rail: '#6B645C', wash: '#EDEAE4', mark: 'xmark', chip: '#6B645C', chipInk: cream };
     case 'RESCHEDULED':
-      return { rail: '#7B8CFF', wash: '#EEF0FF', mark: 'arrow', chip: '#7B8CFF', chipInk: '#FFFFFF' };
+      return { rail: '#5A7A6B', wash: '#E0EBE6', mark: 'arrow', chip: '#5A7A6B', chipInk: cream };
     case 'CANCELLED':
-      return { rail: '#C23B3B', wash: '#F8EEEE', mark: 'xmark', chip: '#C23B3B', chipInk: '#FFFFFF' };
+      return { rail: '#A04A4A', wash: '#F5EBEB', mark: 'xmark', chip: '#A04A4A', chipInk: cream };
     case 'BLOCKED':
-      return { rail: '#6B7394', wash: '#EEF0F5', mark: 'block', chip: '#6B7394', chipInk: '#FFFFFF' };
+      return { rail: '#7A756D', wash: '#EDEAE4', mark: 'block', chip: '#7A756D', chipInk: cream };
     default:
-      return { rail: 'transparent', wash: '#FFFFFF', mark: null, chip: '#DCE4F5', chipInk: '#243056' };
+      return { rail: 'transparent', wash: cream, mark: null, chip: '#DCE6DF', chipInk: ink };
   }
 }
 

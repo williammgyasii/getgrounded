@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type AuthFieldProps = TextInputProps & {
@@ -17,7 +17,7 @@ export function AuthField({ label, secureTextEntry, style, ...props }: AuthField
 
   return (
     <View style={styles.wrap}>
-      <ThemedText type="smallBold" style={styles.label}>
+      <ThemedText type="caption" style={styles.label}>
         {label}
       </ThemedText>
       <View
@@ -42,7 +42,7 @@ export function AuthField({ label, secureTextEntry, style, ...props }: AuthField
             setFocused(false);
             props.onBlur?.(event);
           }}
-          style={[styles.input, { color: theme.text, fontFamily: FontFamily.medium }, style]}
+          style={[styles.input, Typography.bodyMedium, { color: theme.text }, style]}
         />
         {isPassword ? (
           <Pressable
@@ -50,7 +50,7 @@ export function AuthField({ label, secureTextEntry, style, ...props }: AuthField
             accessibilityLabel={hidden ? 'Show password' : 'Hide password'}
             hitSlop={8}
             onPress={() => setHidden((value) => !value)}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
+            <ThemedText type="caption" themeColor="textSecondary">
               {hidden ? 'Show' : 'Hide'}
             </ThemedText>
           </Pressable>
@@ -64,10 +64,7 @@ const styles = StyleSheet.create({
   wrap: {
     gap: Spacing.two,
   },
-  label: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
+  label: {},
   field: {
     minHeight: 52,
     borderRadius: Radius.field,
@@ -79,8 +76,6 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    lineHeight: 22,
     paddingVertical: Spacing.two,
   },
 });

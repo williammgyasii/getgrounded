@@ -9,7 +9,7 @@ import { SocialButton } from '@/components/auth/social-button';
 import { GoogleMark } from '@/components/auth/social-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function WelcomeScreen() {
@@ -92,21 +92,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
   },
   mark: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
+    ...Typography.overline,
     marginBottom: Spacing.four,
   },
   title: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 34,
-    lineHeight: 42,
-    letterSpacing: -0.6,
+    ...Typography.displayHero,
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
+    ...Typography.body,
     marginTop: Spacing.three,
     maxWidth: 320,
   },
@@ -122,7 +115,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
   },
   legal: {
-    fontSize: 13,
-    lineHeight: 18,
+    ...Typography.caption,
   },
 });

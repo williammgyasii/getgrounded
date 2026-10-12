@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SymbolView } from 'expo-symbols';
 
@@ -10,9 +11,10 @@ import { agendaSummary } from '@/components/talk/day-agenda';
 import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { EveningSheet } from '@/components/talk/evening-sheet';
 import { PageWait } from '@/components/talk/page-wait';
+import { PlanScreenShell, PlanTabBarInset } from '@/components/talk/plan-screen-shell';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
+import { PlanBlue } from '@/constants/plan-theme';
+import { Typography, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone, type DayRecord } from '@/lib/api';
 import { longDayLabel, scheduledTasks } from '@/lib/day-tasks';
@@ -26,6 +28,7 @@ function initialFrom(email: string | null | undefined): string {
 }
 
 export default function TasksScreen() {
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const user = useAuthUser();
   const signedIn = user != null;
@@ -64,7 +67,7 @@ export default function TasksScreen() {
   }
 
   return (
-    <ThemedView style={styles.screen}>
+    <PlanScreenShell>
       <HomeTopBar
         title="Tasks"
         subtitle="Each day you spoke."
@@ -72,9 +75,13 @@ export default function TasksScreen() {
         onAvatarPress={() => router.push('/you')}
       />
       {waiting ? <PageWait /> : null}
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + PlanTabBarInset },
+        ]}>
         {waiting ? null : days.length === 0 ? (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={[styles.card, { backgroundColor: PlanBlue.mist, borderColor: PlanBlue.border }]}>
             <ThemedText type="smallBold">No days yet</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.copy}>
               Plan a morning and it will land here.
@@ -97,8 +104,8 @@ export default function TasksScreen() {
                   style={[
                     styles.card,
                     {
-                      backgroundColor: theme.card,
-                      borderColor: closed ? ClosedInk : theme.border,
+                      backgroundColor: PlanBlue.mist,
+                      borderColor: closed ? PlanBlue.deep : PlanBlue.border,
                       borderWidth: closed ? 2 : 1,
                     },
                   ]}>
@@ -107,7 +114,9 @@ export default function TasksScreen() {
                       <ThemedText type="small" themeColor="textSecondary">
                         {longDayLabel(day.localDate)}
                       </ThemedText>
-                      <ThemedText style={styles.dayTitle}>{day.title ?? 'Untitled day'}</ThemedText>
+                      <ThemedText style={[styles.dayTitle, { color: PlanBlue.deep }]}>
+                        {day.title ?? 'Untitled day'}
+                      </ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
                         {closed ? 'Night closed · tap to review recordings' : agendaSummary(tasks)}
                       </ThemedText>
@@ -121,7 +130,7 @@ export default function TasksScreen() {
                             web: 'check_circle',
                           }}
                           size={22}
-                          tintColor={ClosedInk}
+                          tintColor={PlanBlue.deep}
                         />
                       </View>
                     ) : null}
@@ -135,7 +144,7 @@ export default function TasksScreen() {
                         <SymbolView
                           name={{ ios: 'moon.fill', android: 'bedtime', web: 'bedtime' }}
                           size={18}
-                          tintColor={theme.accent}
+                          tintColor={PlanBlue.primary}
                         />
                       </Pressable>
                     ) : null}
@@ -177,16 +186,11 @@ export default function TasksScreen() {
         }}
         onConfirm={() => void confirmDelete()}
       />
-    </ThemedView>
+    </PlanScreenShell>
   );
 }
 
-const ClosedInk = '#2F4A3C';
-
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
   content: {
     width: '100%',
     maxWidth: MaxContentWidth,
@@ -212,9 +216,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   dayTitle: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 18,
-    lineHeight: 24,
+    ...Typography.title, fontSize: 18, lineHeight: 24,
   },
   trash: {
     width: 36,
@@ -223,7 +225,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   copy: {
-    fontSize: 16,
-    lineHeight: 24,
+    ...Typography.body,
   },
 });

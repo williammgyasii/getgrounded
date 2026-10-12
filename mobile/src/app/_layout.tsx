@@ -1,10 +1,10 @@
 import {
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
   useFonts,
-} from '@expo-google-fonts/poppins';
+} from '@expo-google-fonts/inter';
 import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -24,7 +24,7 @@ const GroundedTheme = {
   colors: {
     ...DefaultTheme.colors,
     background: Colors.light.background,
-    card: Colors.light.background,
+    card: Colors.light.card,
     text: Colors.light.text,
     border: Colors.light.border,
     primary: Colors.light.primary,
@@ -33,10 +33,10 @@ const GroundedTheme = {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
   });
 
   if (!fontsLoaded) {

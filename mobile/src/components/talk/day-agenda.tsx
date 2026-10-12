@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Typography, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clockLabel, minutesLabel, minutesPhrase } from '@/lib/clock';
 import { areaLabel, areaTint } from '@/lib/life-areas';
@@ -153,8 +153,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   title: {
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
+    ...Typography.bodyMedium,
     lineHeight: 22,
   },
   done: {

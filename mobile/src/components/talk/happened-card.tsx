@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Typography, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { areaLabel, areaTint } from '@/lib/life-areas';
 
@@ -88,11 +88,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     lineHeight: 13,
-    fontFamily: FontFamily.medium,
+    fontFamily: Typography.bodyMedium.fontFamily,
   },
   title: {
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
+    ...Typography.bodyMedium,
     lineHeight: 22,
     padding: 0,
   },

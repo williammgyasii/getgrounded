@@ -5,7 +5,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { DangerConfirm } from '@/components/talk/danger-confirm';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { PlanBlue } from '@/constants/plan-theme';
+import { Typography, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clockLabel, minutesLabel } from '@/lib/clock';
 import { statusLabel, type AgendaTask } from '@/lib/day-tasks';
@@ -28,7 +29,7 @@ export function TaskRows({
   }
 
   return (
-    <View style={[styles.list, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View style={[styles.list, { backgroundColor: PlanBlue.mist, borderColor: PlanBlue.border }]}>
       {items.map((item, index) => {
         const status = item.status?.toUpperCase();
         const done = status === 'COMPLETED';
@@ -43,7 +44,7 @@ export function TaskRows({
               styles.row,
               { backgroundColor: look.wash },
               index < items.length - 1
-                ? { borderBottomColor: theme.border, borderBottomWidth: StyleSheet.hairlineWidth }
+                ? { borderBottomColor: PlanBlue.border, borderBottomWidth: StyleSheet.hairlineWidth }
                 : null,
             ]}>
             <View style={[styles.rail, { backgroundColor: look.rail }]} />
@@ -57,8 +58,8 @@ export function TaskRows({
               style={[
                 styles.box,
                 {
-                  borderColor: look.mark ? look.rail : theme.border,
-                  backgroundColor: look.mark ? look.rail : theme.card,
+                  borderColor: look.mark ? look.rail : PlanBlue.border,
+                  backgroundColor: look.mark ? look.rail : PlanBlue.wash,
                 },
               ]}>
               {icon ? <SymbolView name={icon} size={12} tintColor="#FFFFFF" /> : null}
@@ -74,7 +75,7 @@ export function TaskRows({
               </ThemedText>
               <View style={styles.meta}>
                 {item.plannedDurationMinutes ? (
-                  <View style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
+                  <View style={[styles.chip, { backgroundColor: PlanBlue.soft, borderColor: PlanBlue.border }]}>
                     <ThemedText style={styles.chipText}>{minutesLabel(item.plannedDurationMinutes)}</ThemedText>
                   </View>
                 ) : null}
@@ -84,7 +85,7 @@ export function TaskRows({
                   </ThemedText>
                 </View>
                 {item.fresh ? (
-                  <View style={[styles.chip, { backgroundColor: theme.accent }]}>
+                  <View style={[styles.chip, { backgroundColor: PlanBlue.primary }]}>
                     <ThemedText style={[styles.chipText, { color: '#FFFFFF' }]}>New</ThemedText>
                   </View>
                 ) : null}
@@ -163,8 +164,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
+    ...Typography.bodyMedium,
     lineHeight: 22,
   },
   done: {
@@ -177,13 +177,14 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderRadius: 5,
+    borderWidth: 1,
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
   chipText: {
     fontSize: 10,
     lineHeight: 13,
-    fontFamily: FontFamily.medium,
+    fontFamily: Typography.bodyMedium.fontFamily,
   },
   time: {
     minWidth: 52,

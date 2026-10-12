@@ -6,7 +6,7 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-aud
 import { File, Paths } from 'expo-file-system';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Typography, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clipClock, currentWordIndex, type SpokenWord } from '@/lib/spoken-words';
 import { useLazyGetClipQuery } from '@/store/api';
@@ -112,12 +112,16 @@ export function DayWords({
     setLoadingId(id);
     try {
       const file = new File(Paths.cache, `clip-${id}.m4a`);
-      if (!file.exists) {
-        const bytes = await fetchClip(id).unwrap();
-        file.create();
-        file.write(new Uint8Array(bytes));
+      if (file.exists) {
+        file.delete();
       }
-      await setAudioModeAsync({ playsInSilentMode: true });
+      const bytes = await fetchClip(id).unwrap();
+      if (!bytes || bytes.byteLength < 64) {
+        throw new Error('empty');
+      }
+      file.create();
+      file.write(new Uint8Array(bytes));
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
       const player = createAudioPlayer({ uri: file.uri });
       player.addListener('playbackStatusUpdate', (status) => {
         if (status.didJustFinish) {
@@ -188,7 +192,7 @@ export function DayWords({
                 key={`${take.id}-${wordIndex}`}
                 style={[
                   styles.words,
-                  wordIndex === active ? { color: theme.accent, fontFamily: FontFamily.semibold } : null,
+                  wordIndex === active ? { color: theme.accent, fontFamily: Typography.title.fontFamily } : null,
                 ]}>
                 {wordIndex === 0 ? word.text : ` ${word.text}`}
               </ThemedText>
@@ -309,9 +313,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 22,
-    lineHeight: 28,
+    ...Typography.title,
     flex: 1,
   },
   body: {
@@ -322,9 +324,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   sectionTitle: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 18,
-    lineHeight: 24,
+    ...Typography.title, fontSize: 18, lineHeight: 24,
     textAlign: 'center',
   },
   card: {
@@ -358,12 +358,10 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   clock: {
-    fontFamily: FontFamily.medium,
+    fontFamily: Typography.bodyMedium.fontFamily,
   },
   words: {
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
-    lineHeight: 24,
+    ...Typography.bodyMedium,
   },
   fullLock: {
     flex: 1,

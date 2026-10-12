@@ -13,7 +13,7 @@ import { SymbolView } from 'expo-symbols';
 import { AuthActionsIn, AuthTitleIn } from '@/components/auth/auth-motion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type AuthScreenProps = {
@@ -94,14 +94,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.three,
   },
   title: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.4,
+    ...Typography.headline,
   },
   subtitle: {
-    fontSize: 15,
-    lineHeight: 22,
+    ...Typography.bodySmall,
     marginTop: Spacing.two,
   },
   body: {

@@ -2,7 +2,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { PillButton } from '@/components/auth/pill-button';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Radius, Spacing } from '@/constants/theme';
+import { Typography, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const Danger = '#C23B3B';
@@ -72,14 +72,11 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   title: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 20,
-    lineHeight: 26,
+    ...Typography.title, fontSize: 20, lineHeight: 26,
   },
   error: {
     color: Danger,
-    fontSize: 13,
-    lineHeight: 18,
+    ...Typography.caption,
   },
   actions: {
     flexDirection: 'row',

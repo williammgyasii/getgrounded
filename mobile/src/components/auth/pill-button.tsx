@@ -62,7 +62,7 @@ export const PillButton = forwardRef<View, PillButtonProps>(function PillButton(
       {...props}>
       <View style={styles.content}>
         {loading ? <ActivityIndicator color={palette.color} /> : null}
-        <ThemedText type="smallBold" style={[styles.label, { color: palette.color }]}>
+        <ThemedText type="bodyMedium" style={[styles.label, { color: palette.color }]}>
           {label}
         </ThemedText>
       </View>
@@ -85,8 +85,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.two,
   },
-  label: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
+  label: {},
 });

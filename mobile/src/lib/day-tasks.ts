@@ -41,8 +41,8 @@ export function statusLabel(status: string | null | undefined): string {
 }
 
 export function scheduledTasks(commitments: CommitmentRecord[], spokenMinute = 8 * 60): AgendaTask[] {
-  const missing = commitments.some((item) => item.plannedStartMinute == null);
-  const source = missing
+  const allUntimed = commitments.every((item) => item.plannedStartMinute == null);
+  const source = allUntimed
     ? layOut(
         commitments.map((item) => ({
           ...item,

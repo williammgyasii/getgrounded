@@ -4,7 +4,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { PillButton } from '@/components/auth/pill-button';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Radius, Spacing } from '@/constants/theme';
+import { Typography, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone } from '@/lib/api';
 import { usePlanMorningMutation } from '@/store/api';
@@ -76,9 +76,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.field,
     padding: Spacing.three,
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
-    lineHeight: 24,
+    ...Typography.bodyMedium,
     textAlignVertical: 'top',
   },
 });

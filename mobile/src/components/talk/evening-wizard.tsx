@@ -27,7 +27,7 @@ import { RecapPrompt } from '@/components/talk/recap-prompt';
 import { TruthCard, type TruthRow } from '@/components/talk/truth-card';
 import { useTalkTake } from '@/components/talk/use-talk-take';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { Typography, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deviceTimezone, type DayRecord, type SpokenWord } from '@/lib/api';
 import { ClipRecord } from '@/lib/clip-record';
@@ -578,14 +578,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   screenTitle: {
-    fontFamily: FontFamily.medium,
-    fontSize: 22,
-    lineHeight: 28,
+    ...Typography.titleMedium,
     flex: 1,
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
+    ...Typography.body,
   },
   ticker: {
     flex: 1,
@@ -603,9 +600,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   tickerText: {
-    fontFamily: FontFamily.regular,
-    fontSize: 20,
-    lineHeight: 28,
+    ...Typography.bodyLarge,
     textAlign: 'left',
   },
   speak: {
@@ -620,8 +615,7 @@ const styles = StyleSheet.create({
   fullWords: {
     flexGrow: 1,
     minHeight: 220,
-    fontFamily: FontFamily.regular,
-    fontSize: 20,
+    ...Typography.bodyLarge,
     lineHeight: 30,
     textAlignVertical: 'top',
   },
@@ -637,14 +631,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dayTitle: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 20,
-    lineHeight: 26,
+    ...Typography.title, fontSize: 20, lineHeight: 26,
   },
   sectionTitle: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 18,
-    lineHeight: 24,
+    ...Typography.title, fontSize: 18, lineHeight: 24,
     textAlign: 'center',
     marginTop: Spacing.one,
   },
@@ -658,8 +648,7 @@ const styles = StyleSheet.create({
   },
   mirrorBody: {
     color: '#FFFFFF',
-    fontSize: 15,
-    lineHeight: 22,
+    ...Typography.bodySmall,
   },
   addWin: {
     width: 44,
@@ -696,9 +685,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   busyMessage: {
-    fontFamily: FontFamily.medium,
-    fontSize: 15,
-    lineHeight: 22,
+    ...Typography.bodySmall, fontFamily: Typography.bodyMedium.fontFamily,
     textAlign: 'center',
   },
 });

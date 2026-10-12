@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type AuthChromeProps = {
@@ -92,13 +92,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.five,
   },
   title: {
-    fontSize: 32,
-    lineHeight: 38,
-    fontWeight: 700,
+    ...Typography.headline,
   },
   subtitle: {
-    fontSize: 15,
-    lineHeight: 22,
+    ...Typography.bodySmall,
   },
   body: {
     flex: 1,

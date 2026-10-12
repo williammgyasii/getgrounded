@@ -15,19 +15,42 @@ export function layOut<T extends PlannedDraft>(items: T[], spokenMinute: number)
     lifeArea: item.lifeArea?.trim() ? item.lifeArea.trim().toUpperCase() : guessArea(item.title),
   }));
 
-  const placed = prepared.filter((item) => item.plannedStartMinute != null);
-  let cursor = Math.max(0, spokenMinute);
+  const timed = prepared.filter((item) => item.plannedStartMinute != null);
+  const untimed = prepared.filter((item) => item.plannedStartMinute == null);
 
-  for (const item of prepared.filter((row) => row.plannedStartMinute == null)) {
-    const duration = item.plannedDurationMinutes ?? DefaultMinutes;
-    const start = nextGap(cursor, duration, placed);
-    placed.push({ ...item, plannedStartMinute: start });
-    cursor = start + duration;
+  if (timed.length === 0) {
+    const placed: T[] = [];
+    let cursor = Math.max(0, spokenMinute);
+    for (const item of untimed) {
+      const duration = item.plannedDurationMinutes ?? DefaultMinutes;
+      const start = nextGap(cursor, duration, placed);
+      placed.push({ ...item, plannedStartMinute: start });
+      cursor = start + duration;
+    }
+    return placed.sort(
+      (left, right) => (left.plannedStartMinute ?? 0) - (right.plannedStartMinute ?? 0),
+    );
   }
 
-  return placed.sort(
-    (left, right) => (left.plannedStartMinute ?? 0) - (right.plannedStartMinute ?? 0),
-  );
+  const placed: T[] = [...timed];
+  for (const item of untimed) {
+    placed.push({ ...item, plannedStartMinute: null });
+  }
+
+  return placed.sort((left, right) => {
+    const leftStart = left.plannedStartMinute;
+    const rightStart = right.plannedStartMinute;
+    if (leftStart == null && rightStart == null) {
+      return 0;
+    }
+    if (leftStart == null) {
+      return 1;
+    }
+    if (rightStart == null) {
+      return -1;
+    }
+    return leftStart - rightStart;
+  });
 }
 
 function guessDuration(title: string, given?: number | null): number {

@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily } from '@/constants/theme';
+import { Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function RoundProgress({
@@ -59,8 +59,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   value: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 16,
+    ...Typography.bodyMedium, fontFamily: Typography.title.fontFamily,
     lineHeight: 20,
   },
 });

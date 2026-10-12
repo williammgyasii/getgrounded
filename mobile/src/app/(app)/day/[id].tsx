@@ -14,6 +14,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { DangerConfirm } from '@/components/talk/danger-confirm';
+import { PlanScreenShell, PlanTabBarInset } from '@/components/talk/plan-screen-shell';
+import { PlanBlue } from '@/constants/plan-theme';
 import { EveningSheet } from '@/components/talk/evening-sheet';
 import { MiddaySheet } from '@/components/talk/midday-sheet';
 import { HappenedCard } from '@/components/talk/happened-card';
@@ -23,8 +25,7 @@ import { DayWords, type WordTake } from '@/components/talk/day-words';
 import { RoundProgress } from '@/components/talk/round-progress';
 import { TaskRows } from '@/components/talk/task-rows';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { FontFamily, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Typography, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { type DayRecord, deviceTimezone } from '@/lib/api';
 import { minutesPhrase } from '@/lib/clock';
@@ -175,7 +176,7 @@ export default function DayScreen() {
   }
 
   return (
-    <ThemedView style={styles.screen}>
+    <PlanScreenShell>
       <View style={[styles.header, { paddingTop: insets.top + Spacing.three }]}>
         <Pressable
           accessibilityRole="button"
@@ -270,7 +271,7 @@ export default function DayScreen() {
       ) : null}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + Spacing.five }]}
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + PlanTabBarInset }]}
         onScrollBeginDrag={() => setMenuOpen(false)}>
         {waiting ? (
           <PageWait />
@@ -278,7 +279,7 @@ export default function DayScreen() {
           <ThemedText themeColor="textSecondary">That day is not on this phone yet.</ThemedText>
         ) : (
           <Animated.View entering={FadeIn.duration(240)} style={styles.bodyInner}>
-            <View style={[styles.progress, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={[styles.progress, { backgroundColor: PlanBlue.mist, borderColor: PlanBlue.border }]}>
               <RoundProgress done={done} total={items.length} />
               <View style={styles.progressCopy}>
                 <ThemedText type="smallBold">
@@ -297,7 +298,7 @@ export default function DayScreen() {
               ) : null}
             </View>
             {closed ? (
-              <View style={[styles.closed, { backgroundColor: theme.accent }]}>
+              <View style={[styles.closed, { backgroundColor: PlanBlue.primary }]}>
                 <ThemedText type="smallBold" style={styles.closedTitle}>
                   Night saved
                 </ThemedText>
@@ -362,7 +363,7 @@ export default function DayScreen() {
       <DayWords open={wordsOpen} takes={transcripts} onClose={() => setWordsOpen(false)} />
       <MiddaySheet day={addOpen && day && canUpdateDay(day) ? day : null} onClose={() => setAddOpen(false)} />
       <EveningSheet day={reflectOpen && day ? day : null} onClose={() => setReflectOpen(false)} />
-    </ThemedView>
+    </PlanScreenShell>
   );
 }
 
@@ -404,7 +405,7 @@ function ReflectMic({ pulsing, onPress }: { pulsing: boolean; onPress: () => voi
             : withSpring(1);
         }}
         onPress={onPress}
-        style={[styles.mic, { backgroundColor: theme.primary, shadowColor: theme.text }]}>
+        style={[styles.mic, { backgroundColor: PlanBlue.primary, shadowColor: PlanBlue.deep }]}>
         <SymbolView
           name={{ ios: 'mic.fill', android: 'mic', web: 'mic' }}
           size={22}
@@ -440,14 +441,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 20,
-    lineHeight: 26,
+    ...Typography.title, fontSize: 20, lineHeight: 26,
   },
   titleInput: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 20,
-    lineHeight: 26,
+    ...Typography.title, fontSize: 20, lineHeight: 26,
     borderBottomWidth: 1,
     paddingVertical: 0,
   },
@@ -502,9 +499,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   happenedTitle: {
-    fontFamily: FontFamily.semibold,
-    fontSize: 18,
-    lineHeight: 24,
+    ...Typography.title, fontSize: 18, lineHeight: 24,
     textAlign: 'center',
     marginBottom: Spacing.one,
   },

@@ -35,6 +35,19 @@ export function clockLabel(minute: number | null | undefined): string {
   return `${hour}:${String(mins).padStart(2, '0')} ${suffix}`;
 }
 
+/** Narrow task rows — single line, no wrap (e.g. 9:00a). */
+export function clockLabelCompact(minute: number | null | undefined): string {
+  if (minute == null || minute < 0) {
+    return '—';
+  }
+
+  const hours = Math.floor(minute / 60) % 24;
+  const mins = minute % 60;
+  const suffix = hours >= 12 ? 'p' : 'a';
+  const hour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour}:${String(mins).padStart(2, '0')}${suffix}`;
+}
+
 export function minutesLabel(minutes: number | null | undefined): string | null {
   if (minutes == null || minutes <= 0) {
     return null;
