@@ -83,10 +83,14 @@ jobs:
     defaults:
       run:
         working-directory: mobile
-    env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - name: Require EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::error::EXPO_TOKEN is missing in GitHub environment prod. Create a token at https://expo.dev/settings/access-tokens then: gh secret set EXPO_TOKEN --env prod --repo williammgyasii/getgrounded"
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

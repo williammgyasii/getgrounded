@@ -52,3 +52,19 @@ Use semver **`vMAJOR.MINOR.PATCH`** (e.g. `v0.2.1`). One tag name for the repo; 
 ## Mobile vs store
 
 Tag → **EAS production build** only. Submitting to Google Play / App Store is a separate step in Expo / store consoles.
+
+### One-time: GitHub → EAS auth
+
+CI uses **`EXPO_TOKEN`** in the GitHub **`prod`** environment (not in the repo).
+
+1. [Create an access token](https://expo.dev/settings/access-tokens) on Expo (account **williammgyasii**, project `getgrounded-app`).
+2. From your machine:
+
+```bash
+gh secret set EXPO_TOKEN --env prod --repo williammgyasii/getgrounded
+# paste the token when prompted
+```
+
+3. Re-run **Mobile → Run workflow** or push a tag that includes `mobile/**` changes.
+
+Local builds (same profile as CI): `cd mobile && eas build --profile production --platform android --non-interactive`.
