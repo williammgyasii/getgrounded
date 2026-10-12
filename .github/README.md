@@ -20,15 +20,21 @@ EAS does not run on every push (that would spend money). Prod API does not auto-
 | Secret | Where | Used by |
 |---|---|---|
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | `dev`, `prod` | Infra state |
-| `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY` | `dev`, `prod` | Infra provider, **website** Pages deploy |
-| `CLOUDFLARE_ACCOUNT_ID` | `dev`, `prod` | **website** Wrangler (`pages deploy`) |
+| `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY` | `dev`, `prod` | Infra, **website** Pages, **API** Workers + Containers |
+| `CLOUDFLARE_ACCOUNT_ID` | `dev`, `prod` | Wrangler (`pages deploy`, `wrangler deploy`) |
 | `VITE_LOOPS_FORM_ID` | `dev`, `prod` (optional) | Waitlist form at build time |
 | `VITE_SUPPORT_EMAIL` | `prod` (optional) | Account deletion page |
 | `VITE_HERO_VIDEO_URL` | `prod` (optional) | Landing hero video |
 | `EXPO_TOKEN` | `dev`, `prod` | EAS |
 
-**Cloudflare token for Pages:** create an API token with **Account → Cloudflare Pages → Edit** (and **Account → Account Settings → Read** for account id). Same token can power Terraform if scopes overlap.
+**Cloudflare token (prod):** one token for Pages + API is fine. Minimum scopes:
 
-Production site project name: **`get-grounded-web`**. Custom domain **`get-grounded.app`** is attached in the Cloudflare dashboard, not in GitHub.
+- **Account → Workers Scripts → Edit** (deploy `get-grounded-api`, read/write Worker secrets)
+- **Account → Cloudflare Pages → Edit** (deploy `get-grounded-web`)
+- **Account → Account Settings → Read** (Wrangler account id)
+
+Worker **runtime secrets** (`DATABASE_URL`, `FIREBASE_PROJECT_ID`, hear/R2 keys) live on the **`get-grounded-api`** Worker in Cloudflare (`wrangler secret put` or `deploy --secrets-file` from `api/.env`). CI **`wrangler deploy` does not pass secrets**; it keeps secrets already on the Worker.
+
+Production: site **`get-grounded-web`** → **`get-grounded.app`**; API **`get-grounded-api`** → **`api.get-grounded.app`** (custom domains in Wrangler config).
 
 This Mac still uses `~/.config/cloudflare/env`. Add `EXPO_TOKEN` after `eas login` + [Expo access token](https://expo.dev/accounts/[account]/settings/access-tokens). Run `eas init` in `mobile/` once so the project exists on Expo.
