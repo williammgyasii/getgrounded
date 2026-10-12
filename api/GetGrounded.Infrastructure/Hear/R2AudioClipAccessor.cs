@@ -2,17 +2,17 @@ using System.Net;
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
-using GetGrounded.Application.Voice;
+using GetGrounded.Application.Hear;
 using Microsoft.Extensions.Configuration;
 
-namespace GetGrounded.Infrastructure.Voice;
+namespace GetGrounded.Infrastructure.Hear;
 
-public sealed class R2AudioStore : IAudioStore, IDisposable
+public sealed class R2AudioClipAccessor : IAudioClipAccessor, IDisposable
 {
     private readonly IAmazonS3 _s3;
     private readonly string _bucket;
 
-    public R2AudioStore(IConfiguration configuration)
+    public R2AudioClipAccessor(IConfiguration configuration)
     {
         var accountId = Require(configuration, "R2_ACCOUNT_ID");
         var accessKey = Require(configuration, "R2_ACCESS_KEY_ID");
@@ -35,12 +35,9 @@ public sealed class R2AudioStore : IAudioStore, IDisposable
         && Has(configuration, "R2_ACCESS_KEY_ID")
         && Has(configuration, "R2_SECRET_ACCESS_KEY");
 
-    public static string BuildObjectKey(Guid userId, string kind) =>
-        $"{userId:N}/{kind}/{Guid.NewGuid():N}.m4a";
-
     public async Task<string> PutAsync(Guid userId, string kind, HearClip clip, CancellationToken cancellationToken)
     {
-        var key = BuildObjectKey(userId, kind);
+        var key = $"{userId:N}/{kind}/{Guid.NewGuid():N}.m4a";
         using var stream = new MemoryStream(clip.Bytes);
         await _s3.PutObjectAsync(
             new PutObjectRequest
@@ -84,7 +81,7 @@ public sealed class R2AudioStore : IAudioStore, IDisposable
         var value = configuration[name];
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new InvalidOperationException($"{name} is required");
+            throw new InvalidOperationException($"{name} is required.");
         }
 
         return value;

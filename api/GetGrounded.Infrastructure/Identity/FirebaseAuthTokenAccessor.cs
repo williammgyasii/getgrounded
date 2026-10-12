@@ -1,26 +1,27 @@
-using GetGrounded.Application.Auth;
+using GetGrounded.Application.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 
-namespace GetGrounded.Infrastructure.Auth;
+namespace GetGrounded.Infrastructure.Identity;
 
-public sealed class FirebaseTokenVerifier : ITokenVerifier
+public sealed class FirebaseAuthTokenAccessor : IAuthTokenAccessor
 {
     private readonly string _projectId;
     private readonly ConfigurationManager<OpenIdConnectConfiguration> _configuration;
 
-    public FirebaseTokenVerifier(IConfiguration configuration)
+    public FirebaseAuthTokenAccessor(IConfiguration configuration)
     {
-        _projectId = configuration["FIREBASE_PROJECT_ID"] ?? "get-ground-448ca";
+        _projectId = configuration["FIREBASE_PROJECT_ID"]
+            ?? throw new InvalidOperationException("FIREBASE_PROJECT_ID is not configured.");
         _configuration = new ConfigurationManager<OpenIdConnectConfiguration>(
             $"https://securetoken.google.com/{_projectId}/.well-known/openid-configuration",
             new OpenIdConnectConfigurationRetriever());
     }
 
-    public async Task<string?> VerifyUserIdAsync(string token, CancellationToken cancellationToken = default)
+    public async Task<string?> VerifyLoginIdAsync(string token, CancellationToken cancellationToken = default)
     {
         if (token.Count(c => c == '.') != 2)
         {

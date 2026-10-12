@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
-using GetGrounded.Application.Voice;
+using GetGrounded.Application.Hear;
 
-namespace GetGrounded.Infrastructure.Voice;
+namespace GetGrounded.Infrastructure.Hear;
 
-public sealed class MemoryAudioStore : IAudioStore
+public sealed class MemoryAudioClipAccessor : IAudioClipAccessor
 {
     private readonly ConcurrentDictionary<string, StoredClip> _clips = new();
 

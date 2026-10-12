@@ -28,6 +28,17 @@ internal static class DatabaseUrl
             builder.Port = uri.Port;
         }
 
+        var sslMode = QueryValue(uri.Query, "sslmode");
+        builder.SslMode = sslMode?.ToLowerInvariant() switch
+        {
+            "disable" => SslMode.Disable,
+            "prefer" => SslMode.Prefer,
+            "require" => SslMode.Require,
+            "verify-ca" => SslMode.VerifyCA,
+            "verify-full" => SslMode.VerifyFull,
+            _ => SslMode.Require
+        };
+
         return builder.ConnectionString;
     }
 

@@ -1,19 +1,19 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
-using GetGrounded.Application.Voice;
+using GetGrounded.Application.Hear;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace GetGrounded.Infrastructure.Voice;
+namespace GetGrounded.Infrastructure.Hear;
 
-public sealed class ElevenLabsSpeechToText(
+public sealed class ElevenLabsSpeechToTextAccessor(
     IHttpClientFactory http,
     IConfiguration config,
-    ILogger<ElevenLabsSpeechToText>? log = null) : ISpeechToText
+    ILogger<ElevenLabsSpeechToTextAccessor>? log = null) : ISpeechToTextAccessor
 {
     private const string RecognizeUrl = "https://api.elevenlabs.io/v1/speech-to-text";
-    private readonly ILogger _log = log ?? NullLogger<ElevenLabsSpeechToText>.Instance;
+    private readonly ILogger _log = log ?? NullLogger<ElevenLabsSpeechToTextAccessor>.Instance;
 
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -90,13 +90,10 @@ public sealed class ElevenLabsSpeechToText(
             : type;
     }
 
-    private static string FileName(string mediaType)
-    {
-        return mediaType is "audio/wav" or "audio/x-wav"
-            ? "clip.wav"
-            : "clip.m4a";
-    }
+    private static string FileName(string mediaType) =>
+        mediaType is "audio/wav" or "audio/x-wav" ? "clip.wav" : "clip.m4a";
 
     private sealed record ScribeResponse(string? Text, IReadOnlyList<ScribeWord>? Words);
+
     private sealed record ScribeWord(string? Text, double? Start, double? End, string? Type);
 }
