@@ -1,4 +1,4 @@
-namespace GetGrounded.Domain;
+namespace GetGrounded.Domain.Book;
 
 public static class LocalDay
 {
