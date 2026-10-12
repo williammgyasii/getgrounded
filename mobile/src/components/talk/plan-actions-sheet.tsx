@@ -42,10 +42,17 @@ export function PlanActionsSheet({
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Pressable style={styles.scrim} accessibilityLabel="Dismiss" onPress={onClose} />
+        <Pressable style={styles.scrimTap} accessibilityLabel="Dismiss" onPress={onClose} />
         <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.three, maxHeight: '82%' }]}>
-          <View style={styles.grabber} />
-          <ThemedText style={styles.title}>More</ThemedText>
+          <View style={styles.sheetHeader}>
+            <View style={styles.grabber} />
+            <View style={styles.titleRow}>
+              <ThemedText style={styles.title}>More</ThemedText>
+              <Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.closeBtn}>
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={16} tintColor={PlanSheet.ink} />
+              </Pressable>
+            </View>
+          </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             <ThemedText style={styles.sectionLabel}>Transcripts & recordings</ThemedText>
             <PlanInlineTranscripts takes={takes} light />
@@ -117,7 +124,10 @@ function SheetAction({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: PlanSheet.scrim },
+  scrimTap: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: PlanSheet.scrim,
+  },
   sheet: {
     backgroundColor: PlanSheet.bg,
     borderTopLeftRadius: 20,
@@ -129,13 +139,31 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
     gap: Spacing.two,
   },
+  sheetHeader: {
+    gap: Spacing.one,
+    marginBottom: Spacing.one,
+  },
   grabber: {
     alignSelf: 'center',
     width: 36,
     height: 4,
     borderRadius: 2,
     backgroundColor: PlanSheet.border,
-    marginBottom: Spacing.one,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PlanSheet.bgElevated,
+    borderWidth: 1,
+    borderColor: PlanSheet.border,
   },
   title: { ...Typography.title, color: PlanSheet.ink },
   sectionLabel: {

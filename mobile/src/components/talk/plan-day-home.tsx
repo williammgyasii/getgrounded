@@ -5,20 +5,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
 import { PlanActionsSheet } from '@/components/talk/plan-actions-sheet';
-import { PlanAssistantAvatar } from '@/components/talk/plan-assistant-avatar';
 import { humanAiText } from '@/lib/human-text';
 import { PlanConfirmSheet } from '@/components/talk/plan-confirm-sheet';
+import { PlanTaskDetailSheet } from '@/components/talk/plan-task-detail-sheet';
 import { PlanUpdateSheet } from '@/components/talk/plan-update-sheet';
+import { syncNevoPresence } from '@/lib/nevo-sync';
 import { PlanScreenShell, PlanTabBarInset } from '@/components/talk/plan-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { PlanSurface } from '@/constants/plan-surface';
 import { MaxContentWidth, Spacing, Typography } from '@/constants/theme';
 import { type DayRecord } from '@/lib/api';
 import { clockLabelCompact } from '@/lib/clock';
-import { longDayLabel } from '@/lib/day-tasks';
+import { shortDayLabel } from '@/lib/day-tasks';
 import { type PlanAssistant } from '@/lib/plan-assistant';
-import { formatDayClock, planDayVibe } from '@/lib/plan-day-vibe';
-import { useMarkCommitmentMutation } from '@/store/api';
+import { formatDayClock } from '@/lib/plan-day-vibe';
+import { useMarkCommitmentMutation, useRemoveCommitmentMutation } from '@/store/api';
 
 function sortTasks(day: DayRecord) {
   return [...day.commitments]
@@ -42,7 +43,10 @@ function sortTasks(day: DayRecord) {
 function StreakBadge({ streak }: { streak: number }) {
   const flames = Math.min(3, Math.max(0, streak));
   return (
-    <Animated.View entering={ZoomIn.duration(320)} style={styles.streakBadge}>
+    <Animated.View
+      entering={ZoomIn.duration(320)}
+      style={styles.streakBadge}
+      accessibilityLabel={`${streak} day streak`}>
       <View style={styles.flames}>
         {flames === 0 ? (
           <SymbolView name={{ ios: 'flame', android: 'local_fire_department', web: 'local_fire_department' }} size={18} tintColor={PlanSurface.textDim} />
@@ -58,7 +62,6 @@ function StreakBadge({ streak }: { streak: number }) {
         )}
       </View>
       <ThemedText style={styles.streakValue}>{streak}</ThemedText>
-      <ThemedText style={styles.streakLabel}>day streak</ThemedText>
     </Animated.View>
   );
 }
@@ -85,11 +88,13 @@ export function PlanDayHome({
   const [updateOpen, setUpdateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [planAgainOpen, setPlanAgainOpen] = useState(false);
+  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [clock, setClock] = useState(formatDayClock());
   const [markCommitment] = useMarkCommitmentMutation();
+  const [removeCommitment] = useRemoveCommitmentMutation();
   const tasks = useMemo(() => sortTasks(day), [day]);
-  const vibe = useMemo(() => planDayVibe(), []);
 
   useEffect(() => {
     const tick = setInterval(() => setClock(formatDayClock()), 30_000);
@@ -99,8 +104,12 @@ export function PlanDayHome({
   const openMore = useCallback(() => setActionsOpen(true), []);
 
   async function toggleTask(id: string, completed: boolean) {
-    await markCommitment({ id, status: completed ? 'COMPLETED' : 'PLANNED' });
+    const saved = await markCommitment({ id, status: completed ? 'COMPLETED' : 'PLANNED' }).unwrap();
+    void syncNevoPresence(saved, streakDays);
+    onRefresh();
   }
+
+  const selectedTask = selectedTaskId ? tasks.find((row) => row.id === selectedTaskId) ?? null : null;
 
   return (
     <PlanScreenShell>
@@ -113,53 +122,49 @@ export function PlanDayHome({
           },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.duration(360)} style={styles.topBar}>
-          <View style={styles.vibeChip}>
-            <SymbolView name={{ ios: 'clock', android: 'schedule', web: 'schedule' }} size={14} tintColor={PlanSurface.accent} />
-            <ThemedText style={styles.vibeClock}>{clock}</ThemedText>
-            <ThemedText style={styles.vibeDot}>·</ThemedText>
-            <ThemedText style={styles.vibeToday}>Today only</ThemedText>
-          </View>
+        <Animated.View entering={FadeInDown.duration(360)} style={styles.headerRow}>
           <StreakBadge streak={streakDays} />
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(60).duration(380)} style={styles.hero}>
-          <View style={styles.heroTop}>
-            <View style={styles.heroCopy}>
-              <ThemedText style={styles.kicker}>{longDayLabel(day.localDate)}</ThemedText>
-              <ThemedText style={styles.title}>
-                {humanAiText(day.title) || 'Your plan'}
-              </ThemedText>
-            </View>
-            <PlanAssistantAvatar assistant={assistant} size="md" />
+          <View style={styles.headerCenter}>
+            <ThemedText style={styles.liveClock}>{clock}</ThemedText>
+            <ThemedText style={styles.shortDate}>{shortDayLabel(day.localDate)}</ThemedText>
           </View>
-          <ThemedText style={styles.vibeHeadline}>{humanAiText(vibe.headline)}</ThemedText>
-          <ThemedText style={styles.vibeSub}>{humanAiText(vibe.sub)}</ThemedText>
-          {day.coachNote?.trim() ? (
-            <View style={styles.museNote}>
-              <ThemedText style={styles.museNoteText}>{humanAiText(day.coachNote)}</ThemedText>
-            </View>
-          ) : null}
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(100).duration(380)} style={styles.toolbar}>
-          <ThemedText style={styles.taskCount}>
-            {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
-          </ThemedText>
-          <View style={styles.viewToggle}>
+          <View style={styles.headerActions}>
             <ToggleIcon
               active={viewMode === 'list'}
               icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
-              label="List"
+              label="List view"
               onPress={() => setViewMode('list')}
             />
             <ToggleIcon
               active={viewMode === 'grid'}
               icon={{ ios: 'square.grid.2x2', android: 'grid_view', web: 'grid_view' }}
-              label="Grid"
+              label="Grid view"
               onPress={() => setViewMode('grid')}
             />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="More actions"
+              hitSlop={8}
+              onPress={openMore}
+              style={styles.headerIconBtn}>
+              <SymbolView
+                name={{ ios: 'ellipsis.circle', android: 'more_horiz', web: 'more_horiz' }}
+                size={22}
+                tintColor={PlanSurface.text}
+              />
+            </Pressable>
           </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(60).duration(380)} style={styles.heroMinimal}>
+          <ThemedText style={styles.dayTitle} numberOfLines={2}>
+            {humanAiText(day.title) || 'Today'}
+          </ThemedText>
+          {day.coachNote?.trim() ? (
+            <ThemedText style={styles.coachLine} numberOfLines={2}>
+              {humanAiText(day.coachNote)}
+            </ThemedText>
+          ) : null}
         </Animated.View>
 
         {viewMode === 'list' ? (
@@ -170,6 +175,8 @@ export function PlanDayHome({
                 task={task}
                 index={index}
                 onToggle={(completed) => void toggleTask(task.id, completed)}
+                onOpen={() => setSelectedTaskId(task.id)}
+                onDelete={() => setDeleteTaskId(task.id)}
               />
             ))}
           </View>
@@ -181,25 +188,15 @@ export function PlanDayHome({
                 task={task}
                 index={index}
                 onToggle={(completed) => void toggleTask(task.id, completed)}
+                onOpen={() => setSelectedTaskId(task.id)}
               />
             ))}
           </View>
         )}
 
         {tasks.length === 0 ? (
-          <ThemedText style={styles.empty}>No tasks yet — use More to plan again.</ThemedText>
+          <ThemedText style={styles.empty}>No tasks yet. Tap ··· to plan again.</ThemedText>
         ) : null}
-
-        <Pressable accessibilityRole="button" onPress={openMore} style={styles.moreBtn}>
-          <ThemedText type="bodyMedium" style={{ color: PlanSurface.text }}>
-            More
-          </ThemedText>
-          <SymbolView
-            name={{ ios: 'ellipsis.circle', android: 'more_horiz', web: 'more_horiz' }}
-            size={20}
-            tintColor={PlanSurface.accent}
-          />
-        </Pressable>
       </ScrollView>
 
       <PlanActionsSheet
@@ -209,6 +206,12 @@ export function PlanDayHome({
         onAddUpdate={() => setUpdateOpen(true)}
         onPlanAgain={() => setPlanAgainOpen(true)}
         onDeleteDay={() => setDeleteOpen(true)}
+      />
+
+      <PlanTaskDetailSheet
+        open={selectedTaskId != null}
+        task={selectedTask}
+        onClose={() => setSelectedTaskId(null)}
       />
 
       <PlanUpdateSheet
@@ -243,6 +246,31 @@ export function PlanDayHome({
           onPlanAgain();
         }}
       />
+
+      <PlanConfirmSheet
+        open={deleteTaskId != null}
+        title="Remove this task?"
+        body={
+          deleteTaskId
+            ? tasks.find((row) => row.id === deleteTaskId)?.title ?? 'This task will be removed from today.'
+            : ''
+        }
+        confirmLabel="Remove task"
+        destructive
+        onCancel={() => setDeleteTaskId(null)}
+        onConfirm={() => {
+          const id = deleteTaskId;
+          setDeleteTaskId(null);
+          if (id) {
+            void removeCommitment(id)
+              .unwrap()
+              .then((saved) => {
+                void syncNevoPresence(saved, streakDays);
+                onRefresh();
+              });
+          }
+        }}
+      />
     </PlanScreenShell>
   );
 }
@@ -274,10 +302,14 @@ function TaskListRow({
   task,
   index,
   onToggle,
+  onOpen,
+  onDelete,
 }: {
   task: DayRecord['commitments'][number];
   index: number;
   onToggle: (completed: boolean) => void;
+  onOpen: () => void;
+  onDelete: () => void;
 }) {
   const completed = task.status?.toUpperCase() === 'COMPLETED';
   return (
@@ -300,12 +332,26 @@ function TaskListRow({
           <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} size={14} tintColor={PlanSurface.bgDeep} />
         ) : null}
       </Pressable>
-      <ThemedText style={[styles.taskTitle, completed && styles.taskDone]} numberOfLines={2}>
-        {task.title}
-      </ThemedText>
+      <Pressable accessibilityRole="button" onPress={onOpen} style={styles.taskTitleTap}>
+        <ThemedText style={[styles.taskTitle, completed && styles.taskDone]} numberOfLines={2}>
+          {task.title}
+        </ThemedText>
+      </Pressable>
       <ThemedText style={styles.taskTime} numberOfLines={1}>
         {task.plannedStartMinute != null ? clockLabelCompact(task.plannedStartMinute) : '—'}
       </ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${task.title}`}
+        hitSlop={8}
+        onPress={onDelete}
+        style={styles.taskDelete}>
+        <SymbolView
+          name={{ ios: 'trash', android: 'delete', web: 'delete' }}
+          size={16}
+          tintColor={PlanSurface.textDim}
+        />
+      </Pressable>
     </Animated.View>
   );
 }
@@ -314,10 +360,12 @@ function TaskGridCell({
   task,
   index,
   onToggle,
+  onOpen,
 }: {
   task: DayRecord['commitments'][number];
   index: number;
   onToggle: (completed: boolean) => void;
+  onOpen: () => void;
 }) {
   const completed = task.status?.toUpperCase() === 'COMPLETED';
   return (
@@ -337,9 +385,11 @@ function TaskGridCell({
           <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} size={12} tintColor={PlanSurface.bgDeep} />
         ) : null}
       </Pressable>
-      <ThemedText style={[styles.gridTitle, completed && styles.taskDone]} numberOfLines={3}>
-        {task.title}
-      </ThemedText>
+      <Pressable accessibilityRole="button" onPress={onOpen}>
+        <ThemedText style={[styles.gridTitle, completed && styles.taskDone]} numberOfLines={3}>
+          {task.title}
+        </ThemedText>
+      </Pressable>
       <ThemedText style={styles.gridTime}>
         {task.plannedStartMinute != null ? clockLabelCompact(task.plannedStartMinute) : '—'}
       </ThemedText>
@@ -355,54 +405,53 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     gap: Spacing.three,
   },
-  heroTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
-  heroCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  topBar: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  vibeChip: {
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  liveClock: {
+    ...Typography.titleMedium,
+    color: PlanSurface.text,
+    fontVariant: ['tabular-nums'],
+  },
+  shortDate: {
+    ...Typography.caption,
+    color: PlanSurface.textMuted,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: PlanSurface.card,
+    borderWidth: 1,
+    borderColor: PlanSurface.borderSoft,
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingVertical: 10,
+    borderRadius: 14,
     backgroundColor: PlanSurface.card,
     borderWidth: 1,
     borderColor: PlanSurface.borderSoft,
-  },
-  vibeClock: {
-    ...Typography.caption,
-    color: PlanSurface.text,
-  },
-  vibeDot: {
-    color: PlanSurface.textDim,
-  },
-  vibeToday: {
-    ...Typography.micro,
-    color: PlanSurface.textMuted,
-    letterSpacing: 0.3,
-  },
-  streakBadge: {
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: PlanSurface.card,
-    borderWidth: 1,
-    borderColor: PlanSurface.borderSoft,
-    minWidth: 72,
+    minWidth: 56,
   },
   flames: {
     flexDirection: 'row',
@@ -411,68 +460,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   streakValue: {
-    ...Typography.stat,
+    ...Typography.titleMedium,
     color: PlanSurface.fire,
-    lineHeight: 28,
+    fontVariant: ['tabular-nums'],
   },
-  streakLabel: {
-    ...Typography.micro,
-    color: PlanSurface.textMuted,
+  heroMinimal: {
+    gap: 6,
+    paddingBottom: Spacing.one,
   },
-  hero: {
-    gap: 8,
-    paddingVertical: Spacing.one,
-  },
-  kicker: {
-    ...Typography.caption,
-    color: PlanSurface.accent,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  title: {
+  dayTitle: {
     ...Typography.headline,
     color: PlanSurface.text,
   },
-  vibeHeadline: {
-    ...Typography.bodyMedium,
-    color: PlanSurface.text,
-    marginTop: 4,
-  },
-  vibeSub: {
+  coachLine: {
     ...Typography.bodySmall,
     color: PlanSurface.textMuted,
-    lineHeight: 22,
-  },
-  museNote: {
-    marginTop: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: PlanSurface.borderSoft,
-    backgroundColor: PlanSurface.card,
-  },
-  museNoteText: {
-    ...Typography.bodySmall,
-    color: PlanSurface.text,
-    lineHeight: 22,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  taskCount: {
-    ...Typography.caption,
-    color: PlanSurface.textMuted,
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    gap: 4,
-    padding: 4,
-    borderRadius: 12,
-    backgroundColor: PlanSurface.card,
-    borderWidth: 1,
-    borderColor: PlanSurface.borderSoft,
+    lineHeight: 20,
   },
   toggleBtn: {
     width: 36,
@@ -504,17 +507,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  taskTitleTap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   taskTitle: {
     ...Typography.body,
-    flex: 1,
     color: PlanSurface.text,
     lineHeight: 24,
   },
+  taskDelete: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   taskTime: {
-    ...Typography.micro,
+    ...Typography.caption,
     color: PlanSurface.textMuted,
-    minWidth: 40,
+    minWidth: 64,
     textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   taskDone: {
     opacity: 0.45,
@@ -549,26 +562,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gridTime: {
-    ...Typography.micro,
+    ...Typography.caption,
     color: PlanSurface.textMuted,
     alignSelf: 'flex-end',
+    fontVariant: ['tabular-nums'],
   },
   empty: {
     ...Typography.bodySmall,
     color: PlanSurface.textMuted,
     textAlign: 'center',
     paddingVertical: Spacing.four,
-  },
-  moreBtn: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: PlanSurface.border,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-    backgroundColor: PlanSurface.card,
-    marginTop: Spacing.one,
   },
 });

@@ -21,6 +21,23 @@ public interface IBookDayAccessor
         DateOnly localDate,
         CancellationToken cancellationToken = default);
 
+    Task<DayRecord?> GetDayByIdAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default);
+
+    Task<DayRecord> ApplyMiddayUpdateAsync(
+        Guid userId,
+        Guid dayId,
+        string timezone,
+        string transcript,
+        IReadOnlyList<PlannedItem> add,
+        IReadOnlyList<MiddayOutcomeUpdate> outcomes,
+        IReadOnlyList<MiddayExtra> extras,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<DayRecord>> GetDaysAsync(
         Guid userId,
         DateOnly from,

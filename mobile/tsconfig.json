@@ -8,6 +8,9 @@
       ],
       "@/assets/*": [
         "./assets/*"
+      ],
+      "nevo-bubble": [
+        "./modules/nevo-bubble/index.ts"
       ]
     }
   },

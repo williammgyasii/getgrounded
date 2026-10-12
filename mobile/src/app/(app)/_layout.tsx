@@ -1,9 +1,12 @@
 import { Stack } from 'expo-router';
 
+import { NevoPresenceHost } from '@/components/nevo/nevo-presence-host';
 import { Colors } from '@/constants/theme';
 
 export default function AppLayout() {
   return (
+    <>
+      <NevoPresenceHost />
     <Stack
       screenOptions={{
         headerShown: false,
@@ -13,5 +16,6 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="day/[id]" />
     </Stack>
+    </>
   );
 }

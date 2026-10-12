@@ -1,0 +1,23 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'expo.modules.nevobubble'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+if (expoModulesCorePlugin.exists()) {
+  apply from: expoModulesCorePlugin
+  applyKotlinExpoModulesCorePlugin()
+
+  android {
+    compileSdkVersion safeExtGet("compileSdkVersion", 35)
+    namespace "expo.modules.nevobubble"
+    defaultConfig {
+      minSdkVersion safeExtGet("minSdkVersion", 24)
+      targetSdkVersion safeExtGet("targetSdkVersion", 35)
+    }
+  }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+}

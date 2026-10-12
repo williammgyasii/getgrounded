@@ -114,6 +114,113 @@ public sealed class PostgresBookDayAccessor(IDbContextFactory<GroundedDbContext>
         CancellationToken cancellationToken = default) =>
         LoadDayAsync(userId, localDate, cancellationToken);
 
+    public async Task<DayRecord?> GetDayByIdAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        var localDate = await db.Days
+            .AsNoTracking()
+            .Where(row => row.UserId == userId && row.Id == dayId)
+            .Select(row => row.LocalDate)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (localDate == default)
+        {
+            return null;
+        }
+
+        return await LoadDayAsync(userId, localDate, cancellationToken);
+    }
+
+    public async Task<DayRecord> ApplyMiddayUpdateAsync(
+        Guid userId,
+        Guid dayId,
+        string timezone,
+        string transcript,
+        IReadOnlyList<PlannedItem> add,
+        IReadOnlyList<MiddayOutcomeUpdate> outcomes,
+        IReadOnlyList<MiddayExtra> extras,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        var day = await db.Days
+            .Include(row => row.Commitments)
+            .FirstOrDefaultAsync(row => row.Id == dayId && row.UserId == userId, cancellationToken);
+        if (day is null)
+        {
+            throw new BookDayNotFoundException();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        day.Timezone = timezone;
+        day.UpdatedAt = now;
+
+        db.VoiceSessions.Add(new VoiceSessionRow
+        {
+            Id = Guid.CreateVersion7(),
+            UserId = userId,
+            DayId = day.Id,
+            Kind = "MIDDAY_UPDATE",
+            Transcript = transcript,
+            ProcessingStatus = "EXTRACTED",
+            StorageKey = storageKey,
+            WordsJson = DayRecordMapper.WriteWords(words),
+            CreatedAt = now
+        });
+
+        var statusById = outcomes.ToDictionary(row => row.Id, row => row.Status.Trim().ToUpperInvariant());
+        foreach (var item in day.Commitments)
+        {
+            if (statusById.TryGetValue(item.Id, out var status))
+            {
+                item.Status = status;
+                item.UpdatedAt = now;
+            }
+        }
+
+        var sort = day.Commitments.Count;
+        foreach (var item in add)
+        {
+            db.Commitments.Add(new CommitmentRow
+            {
+                Id = Guid.CreateVersion7(),
+                UserId = userId,
+                DayId = day.Id,
+                Title = item.Title,
+                Status = "PLANNED",
+                PlannedDurationMinutes = item.PlannedDurationMinutes,
+                PlannedAt = item.PlannedStartMinute is int minute
+                    ? LocalClock.At(timezone, day.LocalDate, minute)
+                    : null,
+                LifeArea = item.LifeArea,
+                Source = "MIDDAY_UPDATE",
+                SortOrder = sort,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+            sort += 1;
+        }
+
+        foreach (var extra in extras)
+        {
+            db.Wins.Add(new WinRow
+            {
+                Id = Guid.CreateVersion7(),
+                UserId = userId,
+                DayId = day.Id,
+                Title = extra.Title,
+                LifeArea = extra.LifeArea,
+                CreatedAt = now
+            });
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return (await LoadDayAsync(userId, day.LocalDate, cancellationToken))!;
+    }
+
     public async Task<IReadOnlyList<DayRecord>> GetDaysAsync(
         Guid userId,
         DateOnly from,

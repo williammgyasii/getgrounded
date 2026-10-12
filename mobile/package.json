@@ -17,6 +17,8 @@
     "expo-glass-effect": "~57.0.1",
     "expo-image": "~57.0.3",
     "expo-linking": "~57.0.7",
+    "expo-notifications": "~57.0.12",
+    "nevo-bubble": "file:./modules/nevo-bubble",
     "expo-router": "~57.0.16",
     "expo-speech": "~57.0.3",
     "expo-speech-recognition": "^57.1.0",

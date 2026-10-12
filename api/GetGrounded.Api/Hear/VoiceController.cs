@@ -1,4 +1,5 @@
 using GetGrounded.Api.Http;
+using GetGrounded.Application.Book;
 using GetGrounded.Application.Hear;
 using GetGrounded.Application.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ namespace GetGrounded.Api.Hear;
 public sealed class VoiceController(
     AuthManager auth,
     PlanExtractManager extract,
+    MiddayExtractManager middayExtract,
     PlanClarifyManager clarify,
     MuseVoiceManager museVoice,
     HearManager hear,
@@ -97,10 +99,15 @@ public sealed class VoiceController(
                 .Where(row => row.QuestionId.Length > 0 && row.Prompt.Length > 0)
                 .ToList();
 
+            var variant = string.Equals(body.ScheduleVariant, "alternate", StringComparison.OrdinalIgnoreCase)
+                ? PlanScheduleVariant.Alternate
+                : PlanScheduleVariant.Default;
+
             var result = await clarify.ClarifyMorningAsync(
                 body.Transcript,
                 body.Timezone ?? "UTC",
                 prior,
+                variant,
                 cancellationToken);
             return Ok(new
             {
@@ -111,7 +118,14 @@ public sealed class VoiceController(
                     id = item.Id,
                     prompt = item.Prompt,
                     topic = item.Topic
-                })
+                }),
+                suggestedBlocks = result.SuggestedBlocks.Select(item => new
+                {
+                    title = item.Title,
+                    plannedStartMinute = item.PlannedStartMinute,
+                    plannedDurationMinutes = item.PlannedDurationMinutes,
+                    source = item.Source,
+                }),
             });
         }
         catch (ArgumentException ex)
@@ -166,9 +180,60 @@ public sealed class VoiceController(
             return BadRequest(new { error = "kind" });
         }
 
-        if (body.Kind is "EVENING_REFLECTION" or "MIDDAY_UPDATE")
+        if (body.Kind is "EVENING_REFLECTION")
         {
             return StatusCode(StatusCodes.Status501NotImplemented);
+        }
+
+        if (body.Kind is "MIDDAY_UPDATE")
+        {
+            if (body.DayId is not Guid dayId)
+            {
+                return BadRequest(new { error = "dayId" });
+            }
+
+            try
+            {
+                var draft = await middayExtract.ExtractAsync(user.Id, dayId, body.Transcript, cancellationToken);
+                return Ok(new
+                {
+                    add = draft.Add.Select(item => new
+                    {
+                        title = item.Title,
+                        plannedDurationMinutes = item.PlannedDurationMinutes,
+                        plannedStartMinute = item.PlannedStartMinute,
+                        lifeArea = item.LifeArea
+                    }),
+                    outcomes = draft.Outcomes.Select(item => new
+                    {
+                        id = item.Id,
+                        status = item.Status,
+                        actualDurationMinutes = (int?)null,
+                        reason = (string?)null
+                    }),
+                    extras = draft.Extras.Select(item => new
+                    {
+                        title = item.Title,
+                        lifeArea = item.LifeArea
+                    })
+                });
+            }
+            catch (BookDayNotFoundException)
+            {
+                return NotFound(new { error = "day" });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InterpretException)
+            {
+                return StatusCode(StatusCodes.Status502BadGateway, new { error = "extract" });
+            }
+            catch (ModelUnavailableException)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "model" });
+            }
         }
 
         try
@@ -230,7 +295,8 @@ public sealed class VoiceController(
         string? Timezone,
         DateTimeOffset? SpokenAt,
         Guid? DayId = null,
-        IReadOnlyList<ClarifyExchangeRequest>? Clarifications = null);
+        IReadOnlyList<ClarifyExchangeRequest>? Clarifications = null,
+        string? ScheduleVariant = null);
 
     public sealed record ClarifyExchangeRequest(
         string? QuestionId,

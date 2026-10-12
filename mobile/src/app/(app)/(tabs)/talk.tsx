@@ -13,6 +13,10 @@ import { MaxContentWidth, Spacing, Typography } from '@/constants/theme';
 import { deviceTimezone } from '@/lib/api';
 import { loadPlanAssistant, type PlanAssistant } from '@/lib/plan-assistant';
 import { canUpdateDay, hasEvening } from '@/lib/reflect-window';
+import { NevoBubbleOptInSheet } from '@/components/talk/nevo-bubble-opt-in-sheet';
+import { useNevoNotificationLinks } from '@/hooks/use-nevo-presence';
+import { loadBubbleEnabled, loadOptInSeen } from '@/lib/nevo-settings';
+import { syncNevoPresence } from '@/lib/nevo-sync';
 import { useGetDeskQuery, useRemoveDayMutation } from '@/store/api';
 
 export default function TalkScreen() {
@@ -21,9 +25,13 @@ export default function TalkScreen() {
   const { data: desk, isLoading, refetch } = useGetDeskQuery(timezone);
   const [removeDay] = useRemoveDayMutation();
   const [assistant, setAssistant] = useState<PlanAssistant | null>(null);
+  const [bubbleOptInOpen, setBubbleOptInOpen] = useState(false);
   const today = desk?.today ?? null;
+  const streakDays = desk?.streakDays ?? 0;
   const closed = today != null && hasEvening(today);
   const planned = today != null && canUpdateDay(today);
+
+  useNevoNotificationLinks();
 
   useEffect(() => {
     void loadPlanAssistant().then(setAssistant);
@@ -33,8 +41,20 @@ export default function TalkScreen() {
     if (!today) {
       return;
     }
+    const localDate = today.localDate;
     await removeDay(today.id).unwrap();
+    const { clearNevoPresence } = await import('@/lib/nevo-sync');
+    await clearNevoPresence(localDate);
     await refetch();
+  }
+
+  async function afterMorningSave(savedDay: import('@/lib/api').DayRecord) {
+    await refetch();
+    await syncNevoPresence(savedDay, streakDays);
+    const [seen, bubble] = await Promise.all([loadOptInSeen(), loadBubbleEnabled()]);
+    if (!seen && !bubble) {
+      setBubbleOptInOpen(true);
+    }
   }
 
   if (assistant == null) {
@@ -66,13 +86,34 @@ export default function TalkScreen() {
           day={today}
           streakDays={desk?.streakDays ?? 0}
           assistant={assistant}
-          onRefresh={() => void refetch()}
+          onRefresh={() => {
+            void refetch().then(() => {
+              if (today) {
+                void syncNevoPresence(today, streakDays);
+              }
+            });
+          }}
           onPlanAgain={() => void clearTodayAndReplan()}
           onDeleteDay={() => void clearTodayAndReplan()}
         />
       ) : (
-        <MorningWizard assistant={assistant} onSaved={() => void refetch()} />
+        <MorningWizard
+          assistant={assistant}
+          onSaved={(saved) => void afterMorningSave(saved)}
+        />
       )}
+      <NevoBubbleOptInSheet
+        open={bubbleOptInOpen}
+        onClose={() => setBubbleOptInOpen(false)}
+        onEnabled={() => {
+          void refetch().then((result) => {
+            const day = result.data?.today;
+            if (day) {
+              void syncNevoPresence(day, result.data?.streakDays ?? 0);
+            }
+          });
+        }}
+      />
     </ThemedView>
   );
 }

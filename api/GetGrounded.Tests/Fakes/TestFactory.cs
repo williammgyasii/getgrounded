@@ -1,5 +1,6 @@
 using GetGrounded.Application.Book;
 using GetGrounded.Application.Hear;
+using GetGrounded.Infrastructure.Hear;
 using GetGrounded.Application.Identity;
 using GetGrounded.Application.Time;
 using Microsoft.AspNetCore.Hosting;
@@ -41,6 +42,11 @@ internal static class TestFactory
                 }
 
                 Replace(services, extract ?? new StubPlanExtractAccessor());
+                foreach (var descriptor in services.Where(item => item.ServiceType == typeof(IMiddayExtractAccessor)).ToList())
+                {
+                    services.Remove(descriptor);
+                }
+                services.AddSingleton<IMiddayExtractAccessor, HeuristicMiddayExtractAccessor>();
             });
         });
     }

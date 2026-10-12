@@ -109,6 +109,20 @@ export function longDayLabel(isoDate: string): string {
   });
 }
 
+/** Plan home header — short, scannable date. */
+export function shortDayLabel(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  if (!year || !month || !day) {
+    return isoDate;
+  }
+
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 function byStart(items: AgendaTask[]): AgendaTask[] {
   return [...items].sort(
     (left, right) => (left.plannedStartMinute ?? 0) - (right.plannedStartMinute ?? 0),

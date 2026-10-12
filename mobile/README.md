@@ -31,6 +31,24 @@ cd mobile
 npm start
 ```
 
+### Nevo bubble (Android)
+
+After you **save a morning plan**, you can opt in to a floating Nevo bubble and local heads-up notifications.
+
+**Native rebuild required** (includes `nevo-bubble` module + `expo-notifications`):
+
+```bash
+cd mobile
+npm install
+npm run android:device
+```
+
+1. Save your plan → **Keep Nevo nearby?** → allow **Display over other apps** when Android prompts.
+2. **You** tab → **Nevo nearby** to toggle bubble or change heads-up lead (15 / 30 / 45 min).
+3. Tap the bubble or a notification → opens **Plan** (`getgroundedapp://plan`).
+
+**Manual check:** save plan with a task ~20 minutes out → notification at lead time; bubble visible within 30 minutes of start.
+
 **4. Terminal 2 — install dev client (first time or after native dep changes):**
 
 ```bash

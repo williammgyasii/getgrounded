@@ -69,10 +69,18 @@ export type ClarifyExchange = {
   answer: string;
 };
 
+export type PlanSuggestBlock = {
+  title: string;
+  plannedStartMinute?: number | null;
+  plannedDurationMinutes?: number | null;
+  source: 'spoken' | 'inferred' | string;
+};
+
 export type PlanClarifyResult = {
   museLine: string;
   complete?: boolean;
   questions: ClarifyQuestion[];
+  suggestedBlocks?: PlanSuggestBlock[];
 };
 
 export type EveningDraft = {

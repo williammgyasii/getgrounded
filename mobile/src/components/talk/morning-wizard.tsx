@@ -33,7 +33,12 @@ import { assistantGreeting, nevoTapLine, type PlanAssistant } from '@/lib/plan-a
 import { formatDayClock, planDayVibe } from '@/lib/plan-day-vibe';
 import { humanAiText } from '@/lib/human-text';
 import { speakNevo, stopNevoSpeech, useNevoSpeaking } from '@/lib/muse-speak';
-import { type ClarifyExchange, type ClarifyQuestion } from '@/lib/api';
+import { type ClarifyExchange, type ClarifyQuestion, type DayRecord, type PlanSuggestBlock } from '@/lib/api';
+import {
+  linesFromSuggestBlocks,
+  mergeSuggestIntoTranscript,
+  suggestSpeakScript,
+} from '@/lib/plan-suggest-speak';
 import {
   apiUrl,
   useClarifyMorningMutation,
@@ -83,7 +88,7 @@ export function MorningWizard({
   onSaved,
 }: {
   assistant: PlanAssistant;
-  onSaved?: () => void;
+  onSaved?: (day: DayRecord) => void;
 }) {
   const insets = useSafeAreaInsets();
   const timezone = deviceTimezone();
@@ -116,6 +121,10 @@ export function MorningWizard({
   const [sheetBusy, setSheetBusy] = useState<string | null>(null);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [museLine, setMuseLine] = useState('');
+  const [suggestBlocks, setSuggestBlocks] = useState<PlanSuggestBlock[]>([]);
+  const [buildLoading, setBuildLoading] = useState(false);
+  const [alternateLoading, setAlternateLoading] = useState(false);
+  const [reviseLoading, setReviseLoading] = useState(false);
   const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([]);
   const [clarifyAnswer, setClarifyAnswer] = useState('');
   const [coachNote, setCoachNote] = useState<string | null>(null);
@@ -126,6 +135,7 @@ export function MorningWizard({
   const clarifyTarget = useRef<string | null>(null);
   const clarifyQuestionsRef = useRef<ClarifyQuestion[]>([]);
   const clarifyHistoryRef = useRef<ClarifyExchange[]>([]);
+  const planRevisions = useRef<string[]>([]);
   const [clarifyTyping, setClarifyTyping] = useState(false);
 
   useEffect(() => {
@@ -201,17 +211,32 @@ export function MorningWizard({
     await start();
   }
 
+  async function startClarifyRevise() {
+    if (isRecording || sheetBusy || reviseLoading || buildLoading) {
+      return;
+    }
+
+    setSheetError(null);
+    clarifyTarget.current = 'clarify-revise';
+    setClarifyVoiceFor('clarify-revise');
+    await start();
+  }
+
   async function stopAndHear() {
     const clarifyId = clarifyTarget.current;
     const uri = talk.available ? await talk.stop() : (await recorder.stop(), recorder.uri);
     if (!uri) {
       const spoken = talk.words.trim();
       if (spoken.length > 0) {
-        if (clarifyId === 'clarify-answer') {
+        if (clarifyId === 'clarify-answer' || clarifyId === 'clarify-revise') {
           clarifyTarget.current = null;
           setClarifyVoiceFor(null);
           if (spoken.length > 0) {
-            await submitClarifyAnswer(spoken);
+            if (clarifyId === 'clarify-revise') {
+              await submitClarifyRevision(spoken);
+            } else {
+              await submitClarifyAnswer(spoken);
+            }
           } else {
             setSheetError('Nothing recorded. Try again.');
           }
@@ -251,6 +276,12 @@ export function MorningWizard({
       if (clarifyId === 'clarify-answer') {
         if (text.length > 0) {
           await submitClarifyAnswer(text);
+        } else {
+          setSheetError('No words came back. Try again.');
+        }
+      } else if (clarifyId === 'clarify-revise') {
+        if (text.length > 0) {
+          await submitClarifyRevision(text);
         } else {
           setSheetError('No words came back. Try again.');
         }
@@ -320,6 +351,7 @@ export function MorningWizard({
     stopNevoSpeech();
     setSheetError(null);
     setClarifyHistory([]);
+    planRevisions.current = [];
     setClarifyTyping(false);
     void runClarify([]);
   }
@@ -329,31 +361,49 @@ export function MorningWizard({
     void advanceClarify();
   }
 
-  function backToTranscript() {
+  function backFromSheet() {
     stopNevoSpeech();
-    setSheetPhase('transcript');
     setCheckError(null);
+    if (sheetPhase === 'tasks' && (museLine.trim() || suggestBlocks.length > 0)) {
+      setSheetPhase('clarify');
+      return;
+    }
+
+    setSheetPhase('transcript');
     setClarifyQuestions([]);
     setClarifyAnswer('');
     setClarifyHistory([]);
     setClarifyTyping(false);
   }
 
+  function speakSuggestPreview(intro: string, blocks: PlanSuggestBlock[]) {
+    void speakNevo(suggestSpeakScript(intro, blocks));
+  }
+
   function enrichedTranscript(prior: ClarifyExchange[]) {
-    const base = words.trim();
-    if (prior.length === 0) {
-      return base;
+    let out = words.trim();
+
+    if (prior.length > 0) {
+      const lines = prior.map((row) => `${row.prompt}: ${row.answer}`);
+      out = `${out}\n\nClarifications:\n${lines.join('\n')}`;
     }
 
-    const lines = prior.map((row) => `${row.prompt}: ${row.answer}`);
-    return `${base}\n\nClarifications:\n${lines.join('\n')}`;
+    if (planRevisions.current.length > 0) {
+      out = `${out}\n\nVoice corrections:\n${planRevisions.current.map((row) => `- ${row}`).join('\n')}`;
+    }
+
+    return out;
   }
 
   function planTranscript() {
     return enrichedTranscript(clarifyHistory);
   }
 
-  async function runClarify(prior: ClarifyExchange[] = []) {
+  async function runClarify(
+    prior: ClarifyExchange[] = [],
+    scheduleVariant: 'default' | 'alternate' = 'default',
+    options?: { stayOnSuggest?: boolean },
+  ) {
     const base = words.trim();
     if (!base) {
       setSheetError('Say or type something first.');
@@ -361,22 +411,43 @@ export function MorningWizard({
       return;
     }
 
-    const transcript = prior.length > 0 ? enrichedTranscript(prior) : base;
+    const transcript =
+      prior.length > 0 || planRevisions.current.length > 0 ? enrichedTranscript(prior) : base;
 
     setSheetPhase(prior.length > 0 ? 'clarify' : 'transcript');
-    setSheetBusy(`${assistant.name} is reviewing your words…`);
+    if (scheduleVariant === 'alternate') {
+      setAlternateLoading(true);
+    } else {
+      setSheetBusy(`${assistant.name} is reviewing your words…`);
+    }
     setStep('thinking');
     try {
-      const result = await clarifyMorning({ transcript, timezone, clarifications: prior }).unwrap();
-      setMuseLine(result.museLine?.trim() || '');
+      const result = await clarifyMorning({
+        transcript,
+        timezone,
+        clarifications: prior,
+        scheduleVariant,
+      }).unwrap();
+      const intro = result.museLine?.trim() || '';
+      const blocks = result.suggestedBlocks ?? [];
+      setMuseLine(intro);
+      setSuggestBlocks(blocks);
       const next = result.questions ?? [];
       setClarifyQuestions(next);
       setClarifyAnswer('');
       setClarifyTyping(false);
       setSheetBusy(null);
+      setAlternateLoading(false);
       setStep('record');
-      if (prior.length === 0 && (next.length > 0 || (result.museLine?.trim()?.length ?? 0) > 0)) {
+      const hasPreview = intro.length > 0 || blocks.length > 0;
+      if (
+        hasPreview &&
+        (options?.stayOnSuggest ||
+          scheduleVariant === 'alternate' ||
+          (prior.length === 0 && (next.length > 0 || hasPreview)))
+      ) {
         setSheetPhase('clarify');
+        speakSuggestPreview(intro, blocks);
         return;
       }
 
@@ -384,7 +455,37 @@ export function MorningWizard({
     } catch {
       setStep('record');
       setSheetBusy(null);
+      setAlternateLoading(false);
       await buildPlanFromClarify(prior);
+    }
+  }
+
+  function requestAlternatePath() {
+    stopNevoSpeech();
+    setSheetError(null);
+    void runClarify(clarifyHistory, 'alternate');
+  }
+
+  function replaySuggestVoice() {
+    stopNevoSpeech();
+    speakSuggestPreview(museLine, suggestBlocks);
+  }
+
+  async function submitClarifyRevision(correction: string) {
+    const trimmed = correction.trim();
+    if (!trimmed) {
+      setSheetError('Say your correction out loud.');
+      return;
+    }
+
+    stopNevoSpeech();
+    setSheetError(null);
+    planRevisions.current = [...planRevisions.current, trimmed];
+    setReviseLoading(true);
+    try {
+      await runClarify(clarifyHistory, 'default', { stayOnSuggest: true });
+    } finally {
+      setReviseLoading(false);
     }
   }
 
@@ -415,13 +516,30 @@ export function MorningWizard({
 
   async function buildPlanFromClarify(prior: ClarifyExchange[]) {
     const proposal = museLine.trim();
-    let transcript = enrichedTranscript(prior);
-    if (proposal && !transcript.includes(proposal)) {
-      transcript = `${transcript}\n\nAssistant proposal:\n${proposal}`;
-    }
+    const transcript = mergeSuggestIntoTranscript(enrichedTranscript(prior), proposal, suggestBlocks);
 
     setClarifyQuestions([]);
-    await extract(transcript);
+
+    if (suggestBlocks.length > 0) {
+      setBuildLoading(true);
+      setStep('thinking');
+      const blockLines = linesFromSuggestBlocks(suggestBlocks, layoutAnchor);
+      setLines(
+        blockLines.length > 0
+          ? blockLines
+          : [{ ...emptyLine(undefined, layoutAnchor), approved: true }],
+      );
+      setDayTitle('Today, on purpose');
+      setCoachNote(proposal ? humanAiText(proposal) : null);
+      extractedFor.current = transcript;
+      setCheckError(null);
+      setBuildLoading(false);
+      setSheetPhase('tasks');
+      setStep('record');
+      return;
+    }
+
+    await extract(transcript, { fromClarify: true });
   }
 
   function skipClarifyAndBuild() {
@@ -435,7 +553,7 @@ export function MorningWizard({
     void submitClarifyAnswer(clarifyAnswer);
   }
 
-  async function extract(transcript: string) {
+  async function extract(transcript: string, options?: { fromClarify?: boolean }) {
     if (!transcript) {
       setSheetError('Say or type something first.');
       setSheetPhase('transcript');
@@ -449,8 +567,12 @@ export function MorningWizard({
       return;
     }
 
-    setSheetPhase(clarifyQuestions.length > 0 ? 'clarify' : 'transcript');
-    setSheetBusy(`${assistant.name} is building your plan…`);
+    if (options?.fromClarify) {
+      setBuildLoading(true);
+    } else {
+      setSheetPhase(clarifyQuestions.length > 0 ? 'clarify' : 'transcript');
+      setSheetBusy(`${assistant.name} is building your plan…`);
+    }
     setStep('thinking');
     try {
       const draft = await extractMorning({
@@ -483,6 +605,7 @@ export function MorningWizard({
       extractedFor.current = transcript;
       setCheckError(null);
       setSheetBusy(null);
+      setBuildLoading(false);
       setSheetPhase('tasks');
       setStep('record');
     } catch (error) {
@@ -499,6 +622,7 @@ export function MorningWizard({
       }
       setSheetPhase('transcript');
       setSheetBusy(null);
+      setBuildLoading(false);
     }
   }
 
@@ -551,7 +675,7 @@ export function MorningWizard({
       setClarifyTyping(false);
       extractedFor.current = '';
       stopNevoSpeech();
-      onSaved?.();
+      onSaved?.(saved);
     } catch (err) {
       const message =
         err && typeof err === 'object' && 'data' in err
@@ -667,9 +791,16 @@ export function MorningWizard({
         onContinueFromTranscript={continueFromTranscript}
         onContinueFromClarify={continueFromClarify}
         onSkipClarify={skipClarifyAndBuild}
-        onBackToTranscript={backToTranscript}
+        onBackToTranscript={backFromSheet}
         assistant={assistant}
         museLine={museLine}
+        suggestBlocks={suggestBlocks}
+        buildLoading={buildLoading}
+        alternateLoading={alternateLoading}
+        onAlternatePath={requestAlternatePath}
+        onReplaySuggestVoice={replaySuggestVoice}
+        onStartRevise={() => void startClarifyRevise()}
+        reviseLoading={reviseLoading}
         clarifyQuestions={clarifyQuestions}
         clarifyAnswer={clarifyAnswer}
         onClarifyAnswerChange={setClarifyAnswer}
@@ -678,7 +809,9 @@ export function MorningWizard({
         clarifyCapture={
           sheetPhase === 'clarify'
             ? {
-                isRecording: clarifyVoiceFor != null && isRecording,
+                isRecording:
+                  (clarifyVoiceFor === 'clarify-answer' || clarifyVoiceFor === 'clarify-revise') &&
+                  isRecording,
                 durationMillis,
                 typing: clarifyTyping,
                 onToggleTyping: () => setClarifyTyping((open) => !open),

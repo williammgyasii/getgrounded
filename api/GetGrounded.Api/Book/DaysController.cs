@@ -11,6 +11,7 @@ namespace GetGrounded.Api.Book;
 public sealed class DaysController(
     AuthManager auth,
     PlanMorningManager planMorning,
+    MiddayUpdateManager middayUpdate,
     DeskManager desk,
     HistoryManager history,
     DayEditManager dayEdit) : ControllerBase
@@ -116,6 +117,58 @@ public sealed class DaysController(
         int? PlannedStartMinute,
         string? LifeArea);
 
+    [HttpPost("midday")]
+    public async Task<IActionResult> Midday([FromBody] MiddayRequest body, CancellationToken cancellationToken)
+    {
+        var user = await AuthGate.IdentifyAsync(Request, auth, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (!Guid.TryParse(body.DayId, out var dayId))
+        {
+            return BadRequest(new { error = "dayId" });
+        }
+
+        try
+        {
+            var add = (body.Add ?? [])
+                .Select(item => new PlannedItem(
+                    item.Title,
+                    item.PlannedDurationMinutes,
+                    item.PlannedStartMinute,
+                    item.LifeArea))
+                .ToList();
+            var outcomes = (body.Outcomes ?? [])
+                .Select(item => new MiddayOutcomeUpdate(Guid.Parse(item.Id), item.Status))
+                .ToList();
+            var extras = (body.Extras ?? [])
+                .Select(item => new MiddayExtra(item.Title, item.LifeArea))
+                .ToList();
+
+            return Ok(await middayUpdate.ApplyAsync(
+                user.Id,
+                dayId,
+                body.Timezone,
+                body.Transcript,
+                add,
+                outcomes,
+                extras,
+                body.StorageKey,
+                body.Words,
+                cancellationToken));
+        }
+        catch (BookDayNotFoundException)
+        {
+            return NotFound(new { error = "Day not found." });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
@@ -207,4 +260,24 @@ public sealed class DaysController(
     public sealed record RenameRequest(string Title);
 
     public sealed record MarkCommitmentRequest(string Status);
+
+    public sealed record MiddayRequest(
+        string Timezone,
+        string Transcript,
+        string DayId,
+        string? StorageKey,
+        IReadOnlyList<SpokenWord>? Words,
+        IReadOnlyList<MiddayAddRequest>? Add,
+        IReadOnlyList<MiddayOutcomeRequest>? Outcomes,
+        IReadOnlyList<MiddayExtraRequest>? Extras);
+
+    public sealed record MiddayAddRequest(
+        string Title,
+        int? PlannedDurationMinutes,
+        int? PlannedStartMinute,
+        string? LifeArea);
+
+    public sealed record MiddayOutcomeRequest(string Id, string Status);
+
+    public sealed record MiddayExtraRequest(string Title, string? LifeArea);
 }

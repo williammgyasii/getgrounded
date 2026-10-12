@@ -6,5 +6,6 @@ public interface IPlanClarifyAccessor
         string transcript,
         string timezone,
         IReadOnlyList<ClarifyExchange> priorAnswers,
+        PlanScheduleVariant scheduleVariant = PlanScheduleVariant.Default,
         CancellationToken cancellationToken = default);
 }

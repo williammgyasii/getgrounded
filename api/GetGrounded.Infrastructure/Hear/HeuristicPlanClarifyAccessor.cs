@@ -20,6 +20,7 @@ public sealed class HeuristicPlanClarifyAccessor : IPlanClarifyAccessor
         string transcript,
         string timezone,
         IReadOnlyList<ClarifyExchange> priorAnswers,
+        PlanScheduleVariant scheduleVariant = PlanScheduleVariant.Default,
         CancellationToken cancellationToken = default)
     {
         var answered = priorAnswers
@@ -67,7 +68,13 @@ public sealed class HeuristicPlanClarifyAccessor : IPlanClarifyAccessor
         }
 
         var filtered = PlanClarifyEngine.FilterQuestions(transcript, priorAnswers, questions);
-        return Task.FromResult(new PlanClarifyResult(museLine, filtered));
+        var blocks = PlanSuggestEngine.BuildBlocks(transcript, scheduleVariant);
+        if (scheduleVariant == PlanScheduleVariant.Alternate && priorAnswers.Count == 0)
+        {
+            museLine = "Here is another way to slot the same plan. Same activities, different times.";
+        }
+
+        return Task.FromResult(new PlanClarifyResult(museLine, filtered, blocks));
     }
 
     private static string BuildProposal(string transcript)

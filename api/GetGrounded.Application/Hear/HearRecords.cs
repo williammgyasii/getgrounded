@@ -23,7 +23,25 @@ public sealed record ClarifyQuestion(string Id, string Prompt, string? Topic);
 
 public sealed record ClarifyExchange(string QuestionId, string Prompt, string Answer);
 
-public sealed record PlanClarifyResult(string MuseLine, IReadOnlyList<ClarifyQuestion> Questions)
+public sealed record PlanSuggestBlock(
+    string Title,
+    int? PlannedStartMinute,
+    int? PlannedDurationMinutes,
+    string Source);
+
+public sealed record PlanClarifyResult(
+    string MuseLine,
+    IReadOnlyList<ClarifyQuestion> Questions,
+    IReadOnlyList<PlanSuggestBlock> SuggestedBlocks)
 {
     public bool Complete => Questions.Count == 0;
 }
+
+public sealed record MiddayOutcomeDraft(Guid Id, string Status);
+
+public sealed record MiddayExtraDraft(string Title, string? LifeArea);
+
+public sealed record MiddayDraft(
+    IReadOnlyList<PlannedItem> Add,
+    IReadOnlyList<MiddayOutcomeDraft> Outcomes,
+    IReadOnlyList<MiddayExtraDraft> Extras);

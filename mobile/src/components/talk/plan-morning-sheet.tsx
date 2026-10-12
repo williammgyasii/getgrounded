@@ -16,12 +16,14 @@ import { SymbolView } from 'expo-symbols';
 import { type PlanLine } from '@/components/talk/plan-task-card';
 import { PlanRecordButton, PlanRecordDock } from '@/components/talk/plan-record-controls';
 import { PlanSortList } from '@/components/talk/plan-sort-list';
+import { PlanSuggestPreview } from '@/components/talk/plan-suggest-preview';
+import { PlanWaveBadge } from '@/components/talk/plan-wave-badge';
 import { PlanWaveHero } from '@/components/talk/plan-wave-hero';
 import { ThemedText } from '@/components/themed-text';
 import { PlanBlue } from '@/constants/plan-theme';
 import { PlanSheet } from '@/constants/plan-sheet';
 import { Radius, Spacing, Typography } from '@/constants/theme';
-import { type ClarifyQuestion } from '@/lib/api';
+import { type ClarifyQuestion, type PlanSuggestBlock } from '@/lib/api';
 import { humanAiText } from '@/lib/human-text';
 import { type PlanAssistant } from '@/lib/plan-assistant';
 
@@ -88,6 +90,13 @@ export function PlanMorningSheet({
   onClarifyAnswerChange,
   onContinueFromClarify,
   onSkipClarify,
+  suggestBlocks = [],
+  buildLoading = false,
+  alternateLoading = false,
+  onAlternatePath,
+  onReplaySuggestVoice,
+  onStartRevise,
+  reviseLoading = false,
   coachNote,
   clarifyCapture,
   onStopNevoVoice,
@@ -104,6 +113,13 @@ export function PlanMorningSheet({
   onClarifyAnswerChange?: (value: string) => void;
   onContinueFromClarify?: () => void;
   onSkipClarify?: () => void;
+  suggestBlocks?: PlanSuggestBlock[];
+  buildLoading?: boolean;
+  alternateLoading?: boolean;
+  onAlternatePath?: () => void;
+  onReplaySuggestVoice?: () => void;
+  onStartRevise?: () => void;
+  reviseLoading?: boolean;
   coachNote?: string | null;
   clarifyCapture?: PlanClarifyCaptureState | null;
   onStopNevoVoice?: () => void;
@@ -146,7 +162,7 @@ export function PlanMorningSheet({
       : phase === 'transcript'
         ? 'Your words'
         : phase === 'clarify'
-          ? `${assistant?.name ?? 'Nevo'} asks`
+          ? `${assistant?.name ?? 'Nevo'}'s plan`
           : 'Save your plan';
   const sheetMaxHeight = tallSheet
     ? windowHeight - insets.top - 8
@@ -198,7 +214,16 @@ export function PlanMorningSheet({
               <ThemedText style={styles.kicker}>{stepKicker}</ThemedText>
               <ThemedText style={styles.title}>{stepTitle}</ThemedText>
             </View>
-            {nevoSpeaking && onStopNevoVoice ? (
+            {phase === 'clarify' && onReplaySuggestVoice ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={nevoSpeaking ? 'Pause Nevo' : 'Listen to Nevo'}
+                hitSlop={12}
+                onPress={nevoSpeaking && onStopNevoVoice ? onStopNevoVoice : onReplaySuggestVoice}
+                style={styles.voiceChip}>
+                <PlanWaveBadge speaking={nevoSpeaking === true} alive />
+              </Pressable>
+            ) : nevoSpeaking && onStopNevoVoice ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Pause Nevo voice"
@@ -333,24 +358,16 @@ export function PlanMorningSheet({
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={[styles.body, styles.clarifyBody]}
                 showsVerticalScrollIndicator={false}>
-                {busy ? (
+                {busy && !buildLoading && !alternateLoading && !reviseLoading ? (
                   <View style={styles.busyRow}>
-                    <ActivityIndicator color={PlanSheet.accent} />
+                    <ActivityIndicator color={PlanBlue.primary} />
                     <ThemedText type="bodyMedium" style={{ color: PlanSheet.ink }}>
                       {busy}
                     </ThemedText>
                   </View>
                 ) : (
                   <>
-                    <ThemedText type="caption" style={styles.clarifyKicker}>
-                      {assistant?.name ?? 'Nevo'} suggests
-                    </ThemedText>
-                    <View style={styles.clarifyAssistantCard}>
-                      <ThemedText type="bodyMedium" style={styles.clarifyAssistantText}>
-                        {humanAiText(museLine) ||
-                          'Tell me what is on your mind today and I will suggest how to slot it.'}
-                      </ThemedText>
-                    </View>
+                    <PlanSuggestPreview intro={museLine} blocks={suggestBlocks} />
                     {clarifyQuestions.length > 0 ? (
                       <View style={styles.clarifyOptionalAsk}>
                         <ThemedText type="caption" style={{ color: PlanSheet.inkMuted }}>
@@ -372,14 +389,14 @@ export function PlanMorningSheet({
                       />
                     ) : null}
                   </>
-                ) : null}
+                )}
                 {error ? (
                   <ThemedText type="small" style={{ color: '#E88A8A' }}>
                     {error}
                   </ThemedText>
                 ) : null}
               </ScrollView>
-              {clarifyCapture && !busy ? (
+              {clarifyCapture && (!busy || buildLoading || alternateLoading || reviseLoading) ? (
                 clarifyCapture.typing ? (
                   <Pressable
                     accessibilityRole="button"
@@ -389,7 +406,7 @@ export function PlanMorningSheet({
                       styles.primaryBtn,
                       { opacity: pressed || !canSendTypedClarify ? 0.75 : 1 },
                     ]}>
-                    <ThemedText type="bodyMedium" style={{ color: PlanBlue.on }}>
+                    <ThemedText type="bodyMedium" style={styles.primaryBtnLabel}>
                       Send typed answer
                     </ThemedText>
                   </Pressable>
@@ -405,21 +422,76 @@ export function PlanMorningSheet({
                     {onSkipClarify ? (
                       <Pressable
                         accessibilityRole="button"
+                        disabled={buildLoading || alternateLoading}
                         onPress={onSkipClarify}
-                        style={({ pressed }) => [styles.clarifyPrimaryBtn, { opacity: pressed ? 0.85 : 1 }]}>
-                        <ThemedText type="bodyMedium" style={{ color: PlanBlue.on }}>
-                          Build my day
-                        </ThemedText>
+                        style={({ pressed }) => [
+                          styles.clarifyPrimaryBtn,
+                          { opacity: pressed || buildLoading || alternateLoading ? 0.75 : 1 },
+                        ]}>
+                        {buildLoading ? (
+                          <ActivityIndicator color={PlanBlue.on} />
+                        ) : (
+                          <>
+                            <SymbolView
+                              name={{ ios: 'calendar.badge.plus', android: 'event', web: 'event' }}
+                              size={18}
+                              tintColor={PlanBlue.on}
+                            />
+                            <ThemedText type="bodyMedium" style={styles.primaryBtnLabel}>
+                              Build my day
+                            </ThemedText>
+                          </>
+                        )}
                       </Pressable>
                     ) : null}
-                    {clarifyQuestions.length > 0 ? (
+                    {onAlternatePath ? (
                       <Pressable
                         accessibilityRole="button"
-                        onPress={clarifyCapture.onStart}
-                        style={({ pressed }) => [styles.clarifyGhostBtn, { opacity: pressed ? 0.85 : 1 }]}>
-                        <ThemedText type="bodyMedium" style={{ color: PlanSheet.ink }}>
-                          Tweak by voice
-                        </ThemedText>
+                        disabled={buildLoading || alternateLoading}
+                        onPress={onAlternatePath}
+                        style={({ pressed }) => [
+                          styles.clarifySecondaryBtn,
+                          { opacity: pressed || buildLoading || alternateLoading ? 0.75 : 1 },
+                        ]}>
+                        {alternateLoading ? (
+                          <ActivityIndicator color={PlanBlue.primary} />
+                        ) : (
+                          <>
+                            <SymbolView
+                              name={{ ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' }}
+                              size={18}
+                              tintColor={PlanBlue.primary}
+                            />
+                            <ThemedText type="bodyMedium" style={styles.secondaryBtnLabel}>
+                              Another path
+                            </ThemedText>
+                          </>
+                        )}
+                      </Pressable>
+                    ) : null}
+                    {onStartRevise ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={buildLoading || alternateLoading || reviseLoading}
+                        onPress={onStartRevise}
+                        style={({ pressed }) => [
+                          styles.clarifyGhostBtn,
+                          { opacity: pressed || buildLoading || alternateLoading || reviseLoading ? 0.75 : 1 },
+                        ]}>
+                        {reviseLoading ? (
+                          <ActivityIndicator color={PlanSheet.ink} />
+                        ) : (
+                          <>
+                            <SymbolView
+                              name={{ ios: 'mic.fill', android: 'mic', web: 'mic' }}
+                              size={18}
+                              tintColor={PlanSheet.ink}
+                            />
+                            <ThemedText type="bodyMedium" style={{ color: PlanSheet.ink }}>
+                              Correct by voice
+                            </ThemedText>
+                          </>
+                        )}
                       </Pressable>
                     ) : null}
                   </View>
@@ -621,18 +693,58 @@ const styles = StyleSheet.create({
   clarifyFooterActions: {
     gap: Spacing.two,
   },
+  voiceChip: {
+    width: 44,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.button,
+    backgroundColor: PlanSheet.accentSoft,
+    borderWidth: 1,
+    borderColor: PlanSheet.border,
+    overflow: 'hidden',
+  },
   clarifyPrimaryBtn: {
-    backgroundColor: PlanSheet.accent,
+    flexDirection: 'row',
+    gap: Spacing.two,
+    backgroundColor: PlanBlue.primary,
     borderRadius: Radius.button,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
   },
-  clarifyGhostBtn: {
+  clarifySecondaryBtn: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    backgroundColor: PlanBlue.soft,
     borderRadius: Radius.button,
     paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: PlanBlue.border,
+  },
+  clarifyGhostBtn: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    borderRadius: Radius.button,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: PlanSheet.border,
+  },
+  primaryBtnLabel: {
+    ...Typography.bodyMedium,
+    color: PlanBlue.on,
+    fontWeight: '600',
+  },
+  secondaryBtnLabel: {
+    ...Typography.bodyMedium,
+    color: PlanBlue.deep,
+    fontWeight: '600',
   },
   clarifyInputTall: {
     minHeight: 96,

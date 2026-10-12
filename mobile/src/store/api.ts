@@ -225,15 +225,21 @@ export const groundedApi = createApi({
     }),
     clarifyMorning: build.mutation<
       PlanClarifyResult,
-      { transcript: string; timezone: string; clarifications?: ClarifyExchange[] }
+      {
+        transcript: string;
+        timezone: string;
+        clarifications?: ClarifyExchange[];
+        scheduleVariant?: 'default' | 'alternate';
+      }
     >({
-      query: ({ transcript, timezone, clarifications }) => ({
+      query: ({ transcript, timezone, clarifications, scheduleVariant }) => ({
         url: '/voice/clarify',
         method: 'POST',
         body: {
           kind: 'MORNING_PLAN',
           transcript,
           timezone,
+          scheduleVariant: scheduleVariant === 'alternate' ? 'alternate' : undefined,
           clarifications: clarifications?.map((row) => ({
             questionId: row.questionId,
             prompt: row.prompt,

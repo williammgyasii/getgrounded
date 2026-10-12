@@ -8,6 +8,7 @@ public sealed class OpenAiPlanClarifyAccessor(PlanClarifyInterpreter interpreter
         string transcript,
         string timezone,
         IReadOnlyList<ClarifyExchange> priorAnswers,
+        PlanScheduleVariant scheduleVariant = PlanScheduleVariant.Default,
         CancellationToken cancellationToken = default) =>
-        interpreter.ReadAsync(transcript, timezone, priorAnswers, cancellationToken);
+        interpreter.ReadAsync(transcript, timezone, priorAnswers, scheduleVariant, cancellationToken);
 }

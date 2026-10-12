@@ -73,6 +73,86 @@ internal sealed class MemoryBookDayAccessor : IBookDayAccessor
         return Task.FromResult(day);
     }
 
+    public Task<DayRecord?> GetDayByIdAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default)
+    {
+        var entry = _days.FirstOrDefault(pair => pair.Key.UserId == userId && pair.Value.Id == dayId);
+        return Task.FromResult<DayRecord?>(entry.Value);
+    }
+
+    public Task<DayRecord> ApplyMiddayUpdateAsync(
+        Guid userId,
+        Guid dayId,
+        string timezone,
+        string transcript,
+        IReadOnlyList<PlannedItem> add,
+        IReadOnlyList<MiddayOutcomeUpdate> outcomes,
+        IReadOnlyList<MiddayExtra> extras,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
+        CancellationToken cancellationToken = default)
+    {
+        var entry = _days.FirstOrDefault(pair => pair.Key.UserId == userId && pair.Value.Id == dayId);
+        if (entry.Value is null)
+        {
+            throw new BookDayNotFoundException();
+        }
+
+        var day = entry.Value;
+        var statusById = outcomes.ToDictionary(row => row.Id, row => row.Status);
+        var commitments = day.Commitments
+            .Select(item => statusById.TryGetValue(item.Id, out var status)
+                ? item with { Status = status }
+                : item)
+            .ToList();
+
+        var sort = commitments.Count;
+        foreach (var item in add)
+        {
+            commitments.Add(new CommitmentRecord(
+                Guid.CreateVersion7(),
+                item.Title,
+                "PLANNED",
+                item.PlannedDurationMinutes,
+                null,
+                item.PlannedStartMinute,
+                item.LifeArea,
+                DateTimeOffset.UtcNow));
+            sort += 1;
+        }
+
+        var clipId = Guid.CreateVersion7();
+        var clip = new ClipRecord(
+            clipId,
+            "MIDDAY_UPDATE",
+            transcript,
+            DateTimeOffset.UtcNow,
+            storageKey is not null,
+            words);
+        if (storageKey is not null)
+        {
+            _sessionKeys[clipId] = storageKey;
+        }
+
+        var wins = day.Wins.ToList();
+        foreach (var extra in extras)
+        {
+            wins.Add(new WinRecord(Guid.CreateVersion7(), extra.Title, extra.LifeArea));
+        }
+
+        var next = day with
+        {
+            Timezone = timezone,
+            Commitments = commitments,
+            Wins = wins,
+            Clips = [.. day.Clips, clip],
+        };
+        _days[entry.Key] = next;
+        return Task.FromResult(next);
+    }
+
     public Task<IReadOnlyList<DayRecord>> GetDaysAsync(
         Guid userId,
         DateOnly from,

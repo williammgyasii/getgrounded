@@ -32,8 +32,9 @@ export function planDayVibe(now = new Date()): { headline: string; sub: string }
 }
 
 export function formatDayClock(now = new Date()): string {
-  return now.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const hours = now.getHours();
+  const mins = now.getMinutes();
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour12}:${String(mins).padStart(2, '0')} ${suffix}`;
 }

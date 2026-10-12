@@ -17,6 +17,8 @@ public static class DependencyInjection
         services.AddSingleton<DayEditManager>();
         services.AddSingleton<PlanExtractManager>();
         services.AddSingleton<PlanClarifyManager>();
+        services.AddSingleton<MiddayExtractManager>();
+        services.AddSingleton<MiddayUpdateManager>();
         services.AddSingleton<MuseVoiceManager>();
         services.AddSingleton<HearManager>();
         services.AddSingleton<VoiceClipManager>();

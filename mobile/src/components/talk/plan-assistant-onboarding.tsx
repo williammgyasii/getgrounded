@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlanAssistantAvatar } from '@/components/talk/plan-assistant-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { PlanBlue } from '@/constants/plan-theme';
+import { PlanSurface } from '@/constants/plan-surface';
 import { PlanSheet } from '@/constants/plan-sheet';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import {
@@ -65,7 +65,7 @@ export function PlanAssistantOnboarding({
           value={name}
           onChangeText={setName}
           placeholder="Nevo"
-          placeholderTextColor={PlanBlue.light}
+          placeholderTextColor={PlanSheet.inkDim}
           style={styles.input}
         />
 
@@ -86,7 +86,7 @@ export function PlanAssistantOnboarding({
         ))}
 
         <Pressable accessibilityRole="button" onPress={() => void finish()} style={styles.cta}>
-          <ThemedText type="bodyMedium" style={{ color: PlanBlue.on }}>
+          <ThemedText type="bodyMedium" style={{ color: PlanSurface.bgDeep }}>
             Start planning
           </ThemedText>
         </Pressable>
@@ -98,7 +98,7 @@ export function PlanAssistantOnboarding({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: PlanSheet.bgAlt,
+    backgroundColor: PlanSurface.bgDeep,
     paddingHorizontal: Spacing.four,
     gap: Spacing.two,
     alignItems: 'stretch',
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   label: {
     ...Typography.caption,
-    color: PlanBlue.mid,
+    color: PlanSheet.inkMuted,
     marginTop: Spacing.one,
   },
   input: {
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.field,
     paddingHorizontal: Spacing.three,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PlanSheet.bgElevated,
     ...Typography.body,
     color: PlanSheet.ink,
   },
@@ -137,17 +137,17 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     padding: Spacing.three,
     gap: 4,
-    backgroundColor: PlanBlue.mist,
+    backgroundColor: PlanSheet.bgElevated,
   },
   toneRowActive: {
-    borderColor: PlanBlue.primary,
-    backgroundColor: PlanBlue.soft,
+    borderColor: PlanSurface.accent,
+    backgroundColor: PlanSheet.accentSoft,
   },
   cta: {
     marginTop: 'auto',
     minHeight: 52,
     borderRadius: Radius.button,
-    backgroundColor: PlanBlue.primary,
+    backgroundColor: PlanSurface.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },

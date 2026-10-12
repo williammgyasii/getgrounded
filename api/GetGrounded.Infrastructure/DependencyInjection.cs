@@ -72,11 +72,14 @@ public static class DependencyInjection
             services.AddSingleton<IPlanExtractAccessor, OpenAiPlanExtractAccessor>();
             services.AddSingleton<PlanClarifyInterpreter>();
             services.AddSingleton<IPlanClarifyAccessor, OpenAiPlanClarifyAccessor>();
+            services.AddSingleton<MiddayExtractInterpreter>();
+            services.AddSingleton<IMiddayExtractAccessor, OpenAiMiddayExtractAccessor>();
         }
         else
         {
             services.AddSingleton<IPlanExtractAccessor, RejectPlanExtractAccessor>();
             services.AddSingleton<IPlanClarifyAccessor, HeuristicPlanClarifyAccessor>();
+            services.AddSingleton<IMiddayExtractAccessor, HeuristicMiddayExtractAccessor>();
         }
     }
 }

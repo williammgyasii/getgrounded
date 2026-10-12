@@ -21,18 +21,21 @@ public sealed class PlanClarifyInterpreter(ILanguageModelAccessor model)
         If they already answered in Already answered, or said they do not know, return no questions.
         If they named a clock time for an activity, do not ask duration for it. Prefer your proposal over asking.
         If nothing needs clarification, return an empty questions array.
-        {"museLine":"","questions":[{"id":"","prompt":"","topic":""}]}
+        suggestedBlocks: ordered preview tasks for the day. Each has title, plannedStartMinute (0 to 1439, optional), plannedDurationMinutes (optional), source spoken or inferred.
+        Add inferred blocks when helpful (e.g. wake up early becomes Wake up with a start time). Keep the same activity titles when scheduleVariant is alternate, only change times and order.
+        {"museLine":"","questions":[{"id":"","prompt":"","topic":""}],"suggestedBlocks":[{"title":"","plannedStartMinute":0,"plannedDurationMinutes":0,"source":"spoken"}]}
         """;
 
     public async Task<PlanClarifyResult> ReadAsync(
         string transcript,
         string timezone,
         IReadOnlyList<ClarifyExchange> priorAnswers,
+        PlanScheduleVariant scheduleVariant = PlanScheduleVariant.Default,
         CancellationToken cancellationToken = default)
     {
         var raw = await model.CompleteJsonAsync(
             System,
-            UserClarify(transcript, timezone, priorAnswers),
+            UserClarify(transcript, timezone, priorAnswers, scheduleVariant),
             cancellationToken);
 
         ClarifyPayload payload;
@@ -68,16 +71,50 @@ public sealed class PlanClarifyInterpreter(ILanguageModelAccessor model)
                 : "I heard you. A couple quick questions before we build your plan."
             : AiPlainEnglish.Clean(payload.MuseLine);
 
-        return new PlanClarifyResult(AiPlainEnglish.Clean(museLine), questions);
+        var blocks = ParseBlocks(payload.SuggestedBlocks);
+        if (blocks.Count == 0)
+        {
+            blocks = PlanSuggestEngine.BuildBlocks(transcript, scheduleVariant).ToList();
+        }
+        else if (scheduleVariant == PlanScheduleVariant.Alternate)
+        {
+            blocks = PlanSuggestEngine.AlternateTimes(blocks, transcript).ToList();
+        }
+
+        return new PlanClarifyResult(AiPlainEnglish.Clean(museLine), questions, blocks);
+    }
+
+    private static List<PlanSuggestBlock> ParseBlocks(IReadOnlyList<ClarifyBlockRow>? rows)
+    {
+        if (rows is null || rows.Count == 0)
+        {
+            return [];
+        }
+
+        return rows
+            .Where(row => !string.IsNullOrWhiteSpace(row.Title))
+            .Select(row => new PlanSuggestBlock(
+                AiPlainEnglish.Clean(row.Title!.Trim()),
+                row.PlannedStartMinute,
+                row.PlannedDurationMinutes,
+                string.Equals(row.Source, "inferred", StringComparison.OrdinalIgnoreCase) ? "inferred" : "spoken"))
+            .ToList();
     }
 
     private static string UserClarify(
         string transcript,
         string timezone,
-        IReadOnlyList<ClarifyExchange> priorAnswers)
+        IReadOnlyList<ClarifyExchange> priorAnswers,
+        PlanScheduleVariant scheduleVariant)
     {
         var builder = new System.Text.StringBuilder();
         builder.AppendLine($"Timezone {timezone}.");
+        builder.AppendLine($"scheduleVariant {scheduleVariant.ToString().ToLowerInvariant()}.");
+        if (scheduleVariant == PlanScheduleVariant.Alternate)
+        {
+            builder.AppendLine("Offer a different schedule for the same activities: new times and order, no new activities.");
+        }
+
         builder.AppendLine("Transcript:");
         builder.AppendLine(transcript);
         if (priorAnswers.Count > 0)
@@ -112,6 +149,15 @@ public sealed class PlanClarifyInterpreter(ILanguageModelAccessor model)
     {
         public string? MuseLine { get; set; }
         public List<ClarifyRow>? Questions { get; set; }
+        public List<ClarifyBlockRow>? SuggestedBlocks { get; set; }
+    }
+
+    private sealed class ClarifyBlockRow
+    {
+        public string? Title { get; set; }
+        public int? PlannedStartMinute { get; set; }
+        public int? PlannedDurationMinutes { get; set; }
+        public string? Source { get; set; }
     }
 
     private sealed class ClarifyRow

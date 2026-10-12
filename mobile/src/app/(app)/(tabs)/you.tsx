@@ -7,10 +7,13 @@ import { HomeTopBar } from '@/components/home/home-top-bar';
 import { PillButton } from '@/components/auth/pill-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { NevoPresenceCard } from '@/components/you/nevo-presence-card';
 import { ReflectHoursCard } from '@/components/you/reflect-hours-card';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { deviceTimezone } from '@/lib/api';
 import { getFirebaseAuth } from '@/lib/firebase';
+import { useGetDeskQuery } from '@/store/api';
 
 function initialFrom(email: string | null | undefined): string {
   const local = email?.split('@')[0]?.trim();
@@ -20,6 +23,8 @@ function initialFrom(email: string | null | undefined): string {
 export default function YouScreen() {
   const theme = useTheme();
   const user = useAuthUser();
+  const timezone = deviceTimezone();
+  const { data: desk, refetch } = useGetDeskQuery(timezone);
 
   async function onSignOut() {
     await signOut(getFirebaseAuth());
@@ -43,6 +48,11 @@ export default function YouScreen() {
           <ThemedText type="smallBold">Signed in</ThemedText>
           <ThemedText themeColor="textSecondary">{user?.email ?? 'your account'}</ThemedText>
         </View>
+        <NevoPresenceCard
+          day={desk?.today ?? null}
+          streakDays={desk?.streakDays ?? 0}
+          onChanged={() => void refetch()}
+        />
         <ReflectHoursCard />
         <PillButton label="Sign out" variant="secondary" onPress={onSignOut} />
       </View>

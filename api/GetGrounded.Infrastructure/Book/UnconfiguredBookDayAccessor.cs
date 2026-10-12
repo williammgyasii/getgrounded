@@ -24,6 +24,25 @@ public sealed class UnconfiguredBookDayAccessor : IBookDayAccessor
         CancellationToken cancellationToken = default) =>
         throw new InvalidOperationException("Postgres book accessor is not configured yet.");
 
+    public Task<DayRecord?> GetDayByIdAsync(
+        Guid userId,
+        Guid dayId,
+        CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("Postgres book accessor is not configured yet.");
+
+    public Task<DayRecord> ApplyMiddayUpdateAsync(
+        Guid userId,
+        Guid dayId,
+        string timezone,
+        string transcript,
+        IReadOnlyList<PlannedItem> add,
+        IReadOnlyList<MiddayOutcomeUpdate> outcomes,
+        IReadOnlyList<MiddayExtra> extras,
+        string? storageKey = null,
+        IReadOnlyList<SpokenWord>? words = null,
+        CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("Postgres book accessor is not configured yet.");
+
     public Task<IReadOnlyList<DayRecord>> GetDaysAsync(
         Guid userId,
         DateOnly from,
