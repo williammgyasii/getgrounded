@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "get-grounded-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "routes": [
+    {
+      "pattern": "api.get-grounded.app",
+      "custom_domain": true
+    }
+  ],
+  "containers": [
+    {
+      "class_name": "GetGroundedApiContainer",
+      "scheduling_policy": "durable_object",
+      "images": {
+        "base": {
+          "dockerfile": "../api/Dockerfile",
+          "build_context": "../api"
+        }
+      }
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "GetGroundedApiContainer",
+        "name": "GETGROUNDED_API"
+      }
+    ]
+  },
+  "exports": {
+    "GetGroundedApiContainer": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  }
+}

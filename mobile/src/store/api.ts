@@ -31,7 +31,7 @@ function clipForm(uri: string, extra?: Record<string, string>): FormData {
   return body;
 }
 
-export const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://dev.get-grounded.app';
+export const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.get-grounded.app';
 
 export const groundedApi = createApi({
   reducerPath: 'groundedApi',

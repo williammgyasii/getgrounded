@@ -135,7 +135,7 @@ Expo Go can type the day. Mic Quick Log does not need WebRTC.
 
 **Deployed (legacy, until rebuild parity):**
 
-- API: Cloud Run (`https://dev.get-grounded.app`)
+- API: Cloudflare Containers (`https://api.get-grounded.app`)
 - Data: Neon Postgres
 - Audio: Cloudflare R2
 - Infra: Terraform in `infra/`

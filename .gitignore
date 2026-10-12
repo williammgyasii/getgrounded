@@ -10,6 +10,8 @@
 **/appsettings.*.local.json
 **/firebase-adminsdk*.json
 .wrangler/
+**/.dev.vars
+**/.secrets-bulk.json
 
 # Dependencies
 node_modules/

@@ -48,7 +48,7 @@ In [Cloudflare Dashboard](https://dash.cloudflare.com) â†’ **Workers & Pages** â
 
 DNS for the apex should CNAME/flatten to Pages once attached (Dashboard configures this if the zone is on Cloudflare).
 
-Keep **`dev.get-grounded.app`** on the API (Cloud Run), not this project.
+API lives at **`api.get-grounded.app`** (Cloudflare Containers), not this Pages project.
 
 ## CI/CD (GitHub Actions)
 

@@ -4,8 +4,8 @@ One repo, eight pipelines. Path filters keep them apart. GitHub **environments**
 
 | Workflow | Paths | Environment | What |
 |---|---|---|---|
-| `api-dev.yml` | `api/**` | `dev` | Test. On `main`, deploy Cloud Run **dev** image |
-| `api-prod.yml` | `api/**` | `prod` | Test. Deploy Cloud Run **prod** only via **Run workflow**. Refuses if `getgrounded-prod-api` does not exist |
+| `api-dev.yml` | `api/**`, `api-worker/**` | — | Test .NET + typecheck API worker |
+| `api-prod.yml` | `api/**`, `api-worker/**` | `prod` | Test .NET; on `main`, deploy **get-grounded-api** (Cloudflare Containers) |
 | `mobile-dev.yml` | `mobile/**` | `dev` | `tsc`. EAS `development` only via **Run workflow** |
 | `mobile-prod.yml` | `mobile/**` | `prod` | `tsc`. EAS `production` only via **Run workflow** |
 | `website-dev.yml` | `website/**` | `dev` (preview only) | Lint + build on PR and `main`. PR preview deploy to Cloudflare Pages |

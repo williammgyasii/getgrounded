@@ -138,7 +138,7 @@ Expo, React Native, TypeScript. Typed Talk works in Expo Go. Mic Quick Log does 
 
 ASP.NET: Api / Application / Domain / Infrastructure. Business brain. Validates AI. Owns entitlements.
 
-**Live now:** Cloud Run container + Neon Postgres (`https://dev.get-grounded.app`).
+**Live now:** Cloudflare Containers + Neon Postgres (`https://api.get-grounded.app`).
 
 ### Firebase (phone platform only)
 
