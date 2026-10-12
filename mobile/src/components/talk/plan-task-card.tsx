@@ -12,16 +12,18 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Typography, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clockLabel, clockToMinute, dateFromMinute, minuteToClock } from '@/lib/clock';
 import { areaLabel, areaTint } from '@/lib/life-areas';
 
+import { PlanBlue } from '@/constants/plan-theme';
+
 const ChipRadius = 8;
-const RestingFill = '#DCE4F5';
-const ApprovedFill = '#D9F2E1';
-const ApprovedLine = '#2F9E5F';
-const ApprovedInk = '#1F7A48';
+const RestingFill = PlanBlue.mist;
+const ApprovedFill = PlanBlue.approvedSoft;
+const ApprovedLine = PlanBlue.approved;
+const ApprovedInk = PlanBlue.approvedInk;
 
 export type PlanLine = {
   key: string;
@@ -61,12 +63,12 @@ export function PlanTaskCard({
 
   const cardStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(progress.value, [0, 1], [RestingFill, ApprovedFill]),
-    borderColor: interpolateColor(progress.value, [0, 1], [theme.border, ApprovedLine]),
+    borderColor: interpolateColor(progress.value, [0, 1], [PlanBlue.border, ApprovedLine]),
   }));
 
   const checkStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(progress.value, [0, 1], [RestingFill, ApprovedLine]),
-    borderColor: interpolateColor(progress.value, [0, 1], [theme.border, ApprovedLine]),
+    borderColor: interpolateColor(progress.value, [0, 1], [PlanBlue.border, ApprovedLine]),
     transform: [{ scale: pop.value }],
   }));
 
@@ -85,7 +87,7 @@ export function PlanTaskCard({
             accessibilityRole="button"
             accessibilityLabel="Change start time"
             onPress={() => setPickingTime(true)}
-            style={[styles.timePill, { backgroundColor: theme.backgroundElement }]}>
+            style={[styles.timePill, { backgroundColor: PlanBlue.soft, borderColor: PlanBlue.border }]}>
             <SymbolView
               name={{ ios: 'clock', android: 'schedule', web: 'schedule' }}
               size={13}
@@ -95,7 +97,7 @@ export function PlanTaskCard({
               {clockLabel(startMinute)}
             </ThemedText>
           </Pressable>
-          <View style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
+          <View style={[styles.chip, { backgroundColor: PlanBlue.soft, borderColor: PlanBlue.border }]}>
             <ThemedText style={[styles.chipText, { color: theme.text }]}>
               {areaLabel(line.area)}
             </ThemedText>
@@ -124,15 +126,15 @@ export function PlanTaskCard({
             accessibilityRole="button"
             accessibilityLabel="Fifteen minutes earlier"
             onPress={() => bumpStart(-15)}
-            style={[styles.step, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="small">−15</ThemedText>
+            style={[styles.step, { backgroundColor: PlanBlue.soft, borderColor: PlanBlue.border }]}>
+            <ThemedText type="small" style={{ color: PlanBlue.deep }}>−15</ThemedText>
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Fifteen minutes later"
             onPress={() => bumpStart(15)}
-            style={[styles.step, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="small">+15</ThemedText>
+            style={[styles.step, { backgroundColor: PlanBlue.soft, borderColor: PlanBlue.border }]}>
+            <ThemedText type="small" style={{ color: PlanBlue.deep }}>+15</ThemedText>
           </Pressable>
         </View>
       </View>
@@ -197,25 +199,16 @@ export function PlanTaskCard({
 }
 
 function SourceMark({ source }: { source: PlanLine['source'] }) {
-  const theme = useTheme();
   if (source === 'spoken') {
     return null;
   }
 
-  const changed = source === 'manual';
+  const label = source === 'manual' ? 'Edited' : 'Suggested';
   return (
-    <View
-      accessibilityLabel={changed ? 'Changed' : 'Placed by AI'}
-      style={[styles.mark, { backgroundColor: changed ? theme.backgroundSelected : theme.primary }]}>
-      <SymbolView
-        name={{
-          ios: changed ? 'pencil.circle' : 'sparkles',
-          android: changed ? 'edit' : 'auto_awesome',
-          web: changed ? 'edit' : 'auto_awesome',
-        }}
-        size={11}
-        tintColor={changed ? theme.text : '#FFFFFF'}
-      />
+    <View accessibilityLabel={label} style={[styles.mark, { borderColor: PlanBlue.border, backgroundColor: PlanBlue.wash }]}>
+      <ThemedText type="small" style={styles.markText}>
+        {label}
+      </ThemedText>
     </View>
   );
 }
@@ -256,26 +249,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderRadius: ChipRadius,
+    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   chip: {
     borderRadius: 5,
+    borderWidth: 1,
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
   chipText: {
     fontSize: 10,
     lineHeight: 13,
-    fontFamily: FontFamily.medium,
+    fontFamily: Typography.bodyMedium.fontFamily,
   },
   mark: {
-    width: 20,
-    height: 20,
     borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     marginLeft: 'auto',
+  },
+  markText: {
+    fontSize: 10,
+    lineHeight: 12,
+    color: PlanBlue.mid,
+    fontFamily: Typography.bodyMedium.fontFamily,
   },
   iconBtn: {
     width: 30,
@@ -303,14 +303,12 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
+    ...Typography.bodyMedium,
     lineHeight: 22,
   },
   titleInput: {
     flex: 1,
-    fontFamily: FontFamily.regular,
-    fontSize: 16,
+    ...Typography.body,
     lineHeight: 22,
     borderWidth: 1,
     borderRadius: ChipRadius,
@@ -324,6 +322,7 @@ const styles = StyleSheet.create({
   },
   step: {
     borderRadius: ChipRadius,
+    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },

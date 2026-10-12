@@ -10,14 +10,17 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+import { PlanCheckTaskRow } from '@/components/talk/plan-check-task-row';
 import { type PlanLine, PlanTaskCard } from '@/components/talk/plan-task-card';
 import { ThemedText } from '@/components/themed-text';
+import { PlanBlue } from '@/constants/plan-theme';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clockLabel, clockToMinute, minutesLabel } from '@/lib/clock';
 import { moveItem, reflowStarts } from '@/lib/plan-order';
 
 const RowStride = 148;
+const CompactRowStride = 64;
 
 export function PlanSortList({
   lines,
@@ -25,12 +28,14 @@ export function PlanSortList({
   onRemove,
   onReorder,
   onDragChange,
+  compact = false,
 }: {
   lines: PlanLine[];
   onChange: (next: PlanLine) => void;
   onRemove: (key: string) => void;
   onReorder: (next: PlanLine[]) => void;
   onDragChange: (active: boolean) => void;
+  compact?: boolean;
 }) {
   function move(from: number, to: number) {
     onReorder(reflowStarts(moveItem(lines, from, to)));
@@ -41,6 +46,7 @@ export function PlanSortList({
       {lines.map((line, index) => (
         <View key={line.key}>
           <SortableRow
+            compact={compact}
             index={index}
             count={lines.length}
             line={line}
@@ -49,7 +55,7 @@ export function PlanSortList({
             onMove={move}
             onDragChange={onDragChange}
           />
-          {index < lines.length - 1 ? (
+          {!compact && index < lines.length - 1 ? (
             <Transition from={line} to={lines[index + 1]} />
           ) : null}
         </View>
@@ -59,7 +65,6 @@ export function PlanSortList({
 }
 
 function Transition({ from, to }: { from: PlanLine; to: PlanLine }) {
-  const theme = useTheme();
   const start = clockToMinute(from.start) ?? 0;
   const duration = Number.parseInt(from.minutes, 10);
   const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 30;
@@ -71,16 +76,17 @@ function Transition({ from, to }: { from: PlanLine; to: PlanLine }) {
 
   return (
     <View style={styles.transition} accessibilityElementsHidden>
-      <View style={[styles.rail, { backgroundColor: theme.border }]} />
-      <ThemedText type="small" themeColor="textSecondary" style={styles.transitionLabel}>
+      <View style={[styles.rail, { backgroundColor: PlanBlue.border }]} />
+      <ThemedText type="small" style={[styles.transitionLabel, { color: PlanBlue.mid }]}>
         {wait ? `${length} · ${wait} later` : `${length} · then ${clockLabel(next) || 'next'}`}
       </ThemedText>
-      <View style={[styles.rail, { backgroundColor: theme.border }]} />
+      <View style={[styles.rail, { backgroundColor: PlanBlue.border }]} />
     </View>
   );
 }
 
 function SortableRow({
+  compact,
   index,
   count,
   line,
@@ -89,6 +95,7 @@ function SortableRow({
   onMove,
   onDragChange,
 }: {
+  compact: boolean;
   index: number;
   count: number;
   line: PlanLine;
@@ -111,7 +118,8 @@ function SortableRow({
       translateY.value = event.translationY;
     })
     .onEnd((event) => {
-      const shift = Math.round(event.translationY / RowStride);
+      const stride = compact ? CompactRowStride : RowStride;
+      const shift = Math.round(event.translationY / stride);
       const to = Math.max(0, Math.min(count - 1, index + shift));
       translateY.value = withSpring(0);
       lifted.value = withSpring(0);
@@ -138,40 +146,59 @@ function SortableRow({
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(280).delay(index * 40)}
-      layout={LinearTransition.springify().damping(18)}
+      entering={compact ? undefined : FadeInDown.duration(280).delay(index * 40)}
+      layout={compact ? undefined : LinearTransition.springify().damping(18)}
       style={[styles.row, style]}>
-      <PlanTaskCard
-        line={line}
-        onChange={onChange}
-        onRemove={onRemove}
-        handle={
-          <GestureDetector gesture={pan}>
-            <View
-              accessibilityRole="adjustable"
-              accessibilityLabel="Drag to reorder"
-              hitSlop={8}
-              style={styles.grip}>
-              <SymbolView
-                name={{
-                  ios: 'line.3.horizontal',
-                  android: 'drag_handle',
-                  web: 'drag_handle',
-                }}
-                size={16}
-                tintColor={theme.textSecondary}
-              />
-            </View>
-          </GestureDetector>
-        }
-      />
+      {compact ? (
+        <PlanCheckTaskRow
+          line={line}
+          onChange={onChange}
+          onRemove={onRemove}
+          handle={
+            <GestureDetector gesture={pan}>
+              <View accessibilityRole="adjustable" accessibilityLabel="Drag to reorder" hitSlop={8} style={styles.grip}>
+                <SymbolView
+                  name={{ ios: 'line.3.horizontal', android: 'drag_handle', web: 'drag_handle' }}
+                  size={16}
+                  tintColor={theme.textSecondary}
+                />
+              </View>
+            </GestureDetector>
+          }
+        />
+      ) : (
+        <PlanTaskCard
+          line={line}
+          onChange={onChange}
+          onRemove={onRemove}
+          handle={
+            <GestureDetector gesture={pan}>
+              <View
+                accessibilityRole="adjustable"
+                accessibilityLabel="Drag to reorder"
+                hitSlop={8}
+                style={styles.grip}>
+                <SymbolView
+                  name={{
+                    ios: 'line.3.horizontal',
+                    android: 'drag_handle',
+                    web: 'drag_handle',
+                  }}
+                  size={16}
+                  tintColor={theme.textSecondary}
+                />
+              </View>
+            </GestureDetector>
+          }
+        />
+      )}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   list: {
-    gap: 0,
+    gap: 8,
   },
   row: {
     borderRadius: 10,

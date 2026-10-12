@@ -1,18 +1,8 @@
-import { type Href, router } from 'expo-router';
-// live captions come from useTalkTake, not a second mic
 import { useEffect, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SymbolView } from 'expo-symbols';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AudioModule,
   setAudioModeAsync,
@@ -20,35 +10,45 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 
-import { PillButton } from '@/components/auth/pill-button';
-import { BusyLock } from '@/components/talk/busy-lock';
-import { agendaSummary } from '@/components/talk/day-agenda';
-import { PlanMic } from '@/components/talk/plan-mic';
+import { PlanAssistantAvatar, type NevoPresence } from '@/components/talk/plan-assistant-avatar';
+import { PlanGradientBackdrop } from '@/components/talk/plan-gradient-backdrop';
+import { PlanMorningSheet, type PlanMorningSheetPhase } from '@/components/talk/plan-morning-sheet';
+import { PlanTabBarInset } from '@/components/talk/plan-screen-shell';
 import { type PlanLine } from '@/components/talk/plan-task-card';
-import { PlanSortList } from '@/components/talk/plan-sort-list';
 import { useTalkTake } from '@/components/talk/use-talk-take';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { PlanSurface } from '@/constants/plan-surface';
+import { Typography, MaxContentWidth, Spacing } from '@/constants/theme';
 import { deviceTimezone, type SpokenWord } from '@/lib/api';
 import { ClipRecord } from '@/lib/clip-record';
 import { clockToMinute, minuteToClock, spokenMinuteNow } from '@/lib/clock';
 import { rememberWords } from '@/lib/day-notes';
 import { layOut } from '@/lib/lay-out';
 import {
+  planLayoutAnchorMinute,
+  planSessionCopy,
+  planTargetLocalDate,
+} from '@/lib/plan-context';
+import { assistantGreeting, nevoTapLine, type PlanAssistant } from '@/lib/plan-assistant';
+import { formatDayClock, planDayVibe } from '@/lib/plan-day-vibe';
+import { humanAiText } from '@/lib/human-text';
+import { speakNevo, stopNevoSpeech, useNevoSpeaking } from '@/lib/muse-speak';
+import { type ClarifyExchange, type ClarifyQuestion } from '@/lib/api';
+import {
   apiUrl,
+  useClarifyMorningMutation,
   useExtractMorningMutation,
   useHearClipMutation,
   usePlanMorningMutation,
 } from '@/store/api';
 
 const MaxMs = 60_000;
+type Step = 'record' | 'thinking';
 
-type Step = 'record' | 'check';
-function emptyLine(after?: PlanLine): PlanLine {
+function emptyLine(after?: PlanLine, anchorMinute?: number): PlanLine {
   const previous = after ? clockToMinute(after.start) : null;
   const duration = after ? parseMinutes(after.minutes) ?? 30 : 0;
-  const start = previous != null ? previous + duration : spokenMinuteNow();
+  const start = previous != null ? previous + duration : (anchorMinute ?? spokenMinuteNow());
   return {
     key: String(Date.now()),
     title: '',
@@ -78,14 +78,23 @@ function joinWords(current: string, next: string) {
   return `${left} ${right}`;
 }
 
-export function MorningWizard() {
-  const theme = useTheme();
+export function MorningWizard({
+  assistant,
+  onSaved,
+}: {
+  assistant: PlanAssistant;
+  onSaved?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const timezone = deviceTimezone();
+  const planTarget = planTargetLocalDate(timezone);
+  const planCopy = planSessionCopy(planTarget, timezone);
+  const layoutAnchor = planLayoutAnchorMinute(planTarget, timezone);
   const recorder = useAudioRecorder(ClipRecord);
   const rec = useAudioRecorderState(recorder, 80);
   const talk = useTalkTake();
   const [hearClip] = useHearClipMutation();
+  const [clarifyMorning] = useClarifyMorningMutation();
   const [extractMorning] = useExtractMorningMutation();
   const [planMorning, saveState] = usePlanMorningMutation();
   const isRecording = talk.available ? talk.recording : rec.isRecording;
@@ -93,8 +102,7 @@ export function MorningWizard() {
   const metering = talk.available ? talk.metering : rec.metering;
 
   const [step, setStep] = useState<Step>('record');
-  const [busy, setBusy] = useState<string | null>(null);
-  const [note, setNote] = useState('Tap the mic and speak.');
+  const [note, setNote] = useState<string | null>(null);
   const [words, setWords] = useState('');
   const [canType, setCanType] = useState(false);
   const [micBlocked, setMicBlocked] = useState(false);
@@ -102,17 +110,23 @@ export function MorningWizard() {
   const [lines, setLines] = useState<PlanLine[]>([]);
   const [dragging, setDragging] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
-  const [showHint, setShowHint] = useState(false);
   const [clipKey, setClipKey] = useState<string | null>(null);
   const [clipWords, setClipWords] = useState<SpokenWord[] | null>(null);
+  const [sheetPhase, setSheetPhase] = useState<PlanMorningSheetPhase | null>(null);
+  const [sheetBusy, setSheetBusy] = useState<string | null>(null);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const [museLine, setMuseLine] = useState('');
+  const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([]);
+  const [clarifyAnswer, setClarifyAnswer] = useState('');
+  const [coachNote, setCoachNote] = useState<string | null>(null);
+  const [clarifyVoiceFor, setClarifyVoiceFor] = useState<string | null>(null);
+  const [clarifyHistory, setClarifyHistory] = useState<ClarifyExchange[]>([]);
   const keptWords = useRef('');
   const extractedFor = useRef('');
-
-  useEffect(() => {
-    if (talk.words.length > 0) {
-      setWords(joinWords(keptWords.current, talk.words));
-    }
-  }, [talk.words]);
+  const clarifyTarget = useRef<string | null>(null);
+  const clarifyQuestionsRef = useRef<ClarifyQuestion[]>([]);
+  const clarifyHistoryRef = useRef<ClarifyExchange[]>([]);
+  const [clarifyTyping, setClarifyTyping] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -120,7 +134,7 @@ export function MorningWizard() {
       if (!permission.granted) {
         setMicBlocked(true);
         setCanType(true);
-        setNote('Mic is blocked. Type the day.');
+        setNote('Mic blocked — type instead.');
         return;
       }
 
@@ -137,9 +151,17 @@ export function MorningWizard() {
     }
   }, [durationMillis, isRecording]);
 
+  useEffect(() => {
+    clarifyQuestionsRef.current = clarifyQuestions;
+  }, [clarifyQuestions]);
+
+  useEffect(() => {
+    clarifyHistoryRef.current = clarifyHistory;
+  }, [clarifyHistory]);
+
   async function start() {
     keptWords.current = words;
-    setNote('Listening. Check sends it. X tosses it.');
+    setNote(null);
     if (talk.available) {
       try {
         await talk.start();
@@ -149,8 +171,14 @@ export function MorningWizard() {
       }
     }
 
-    await recorder.prepareToRecordAsync();
-    recorder.record();
+    try {
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+    } catch {
+      setMicBlocked(true);
+      setCanType(true);
+      setNote('Mic unavailable here — type instead.');
+    }
   }
 
   async function discard() {
@@ -159,28 +187,75 @@ export function MorningWizard() {
     } else {
       await recorder.stop();
     }
-    setNote('Tossed. Tap the mic and speak.');
+    setNote(null);
+  }
+
+  async function startClarifyRecord() {
+    if (isRecording || sheetBusy) {
+      return;
+    }
+
+    setSheetError(null);
+    clarifyTarget.current = 'clarify-answer';
+    setClarifyVoiceFor('clarify-answer');
+    await start();
   }
 
   async function stopAndHear() {
+    const clarifyId = clarifyTarget.current;
     const uri = talk.available ? await talk.stop() : (await recorder.stop(), recorder.uri);
     if (!uri) {
-      if (talk.words.trim().length > 0) {
+      const spoken = talk.words.trim();
+      if (spoken.length > 0) {
+        if (clarifyId === 'clarify-answer') {
+          clarifyTarget.current = null;
+          setClarifyVoiceFor(null);
+          if (spoken.length > 0) {
+            await submitClarifyAnswer(spoken);
+          } else {
+            setSheetError('Nothing recorded. Try again.');
+          }
+          return;
+        }
+
         setCanType(true);
-        setNote('Fix anything we misheard, then continue.');
+        setWords(joinWords(keptWords.current, spoken));
+        setSheetError(null);
+        setSheetBusy(null);
+        setSheetPhase('transcript');
         return;
       }
 
-      setNote('Nothing was recorded. Tap the mic and speak.');
+      setNote('Nothing recorded.');
+      clarifyTarget.current = null;
+      setClarifyVoiceFor(null);
       return;
     }
 
     setCanType(true);
-    setBusy('Sending your voice…');
+    setSheetError(null);
+    setSheetBusy(clarifyId ? 'Transcribing your answer…' : 'Transcribing…');
+    if (!clarifyId) {
+      setSheetPhase('transcript');
+    }
+
     try {
       const heard = await hearClip({ uri }).unwrap();
-      if (heard.transcript.trim().length > 0) {
-        setWords((current) => joinWords(current, heard.transcript));
+      const text =
+        heard.transcript.trim().length > 0
+          ? heard.transcript
+          : talk.words.trim().length > 0
+            ? talk.words.trim()
+            : '';
+
+      if (clarifyId === 'clarify-answer') {
+        if (text.length > 0) {
+          await submitClarifyAnswer(text);
+        } else {
+          setSheetError('No words came back. Try again.');
+        }
+      } else if (text.length > 0) {
+        setWords((current) => joinWords(current, text));
       }
       if (heard.storageKey) {
         setClipKey(heard.storageKey);
@@ -188,14 +263,22 @@ export function MorningWizard() {
       if (heard.words && heard.words.length > 0) {
         setClipWords(heard.words);
       }
-      setNote('Fix anything we misheard, then continue.');
+      setNote(null);
     } catch (error) {
       const status =
         error && typeof error === 'object' && 'status' in error
           ? String((error as { status: unknown }).status)
           : 'failed';
+      if (status === '401') {
+        setSheetError(`Not signed in (${apiUrl}). Check You tab, then reload.`);
+        return;
+      }
       if (status === '422') {
-        setNote('We got the clip, but no words came back. Try again closer to the phone — or type them.');
+        setSheetError('No words came back. Try again or type them.');
+        return;
+      }
+      if (status === '503') {
+        setSheetError('Transcription unavailable. Add ELEVENLABS_API_KEY to api/.env.');
         return;
       }
 
@@ -203,41 +286,186 @@ export function MorningWizard() {
         error && typeof error === 'object' && 'error' in error
           ? String((error as { error: unknown }).error)
           : '';
-      setNote(
-        `Could not hear that clip (${status}${detail ? ` ${detail}` : ''} → ${apiUrl}). Keep your words, or type them.`,
-      );
+      setSheetError(`Could not transcribe (${status}${detail ? ` ${detail}` : ''}). Edit or re-record.`);
     } finally {
-      setBusy(null);
+      setSheetBusy(null);
+      clarifyTarget.current = null;
+      setClarifyVoiceFor(null);
     }
   }
 
-  async function extract() {
-    const transcript = words.trim();
+  function openCaptureSheet() {
+    setSheetError(null);
+    setSheetBusy(null);
+    setSheetPhase('capture');
+  }
+
+  function openTranscriptSheet() {
+    setCanType(true);
+    setSheetError(null);
+    setSheetBusy(null);
+    setSheetPhase('transcript');
+  }
+
+  function closeSheet() {
+    if (isRecording) {
+      void discard();
+    }
+    setSheetPhase(null);
+    setSheetError(null);
+    setStep('record');
+  }
+
+  function continueFromTranscript() {
+    stopNevoSpeech();
+    setSheetError(null);
+    setClarifyHistory([]);
+    setClarifyTyping(false);
+    void runClarify([]);
+  }
+
+  function continueFromClarify() {
+    setSheetError(null);
+    void advanceClarify();
+  }
+
+  function backToTranscript() {
+    stopNevoSpeech();
+    setSheetPhase('transcript');
+    setCheckError(null);
+    setClarifyQuestions([]);
+    setClarifyAnswer('');
+    setClarifyHistory([]);
+    setClarifyTyping(false);
+  }
+
+  function enrichedTranscript(prior: ClarifyExchange[]) {
+    const base = words.trim();
+    if (prior.length === 0) {
+      return base;
+    }
+
+    const lines = prior.map((row) => `${row.prompt}: ${row.answer}`);
+    return `${base}\n\nClarifications:\n${lines.join('\n')}`;
+  }
+
+  function planTranscript() {
+    return enrichedTranscript(clarifyHistory);
+  }
+
+  async function runClarify(prior: ClarifyExchange[] = []) {
+    const base = words.trim();
+    if (!base) {
+      setSheetError('Say or type something first.');
+      setSheetPhase('transcript');
+      return;
+    }
+
+    const transcript = prior.length > 0 ? enrichedTranscript(prior) : base;
+
+    setSheetPhase(prior.length > 0 ? 'clarify' : 'transcript');
+    setSheetBusy(`${assistant.name} is reviewing your words…`);
+    setStep('thinking');
+    try {
+      const result = await clarifyMorning({ transcript, timezone, clarifications: prior }).unwrap();
+      setMuseLine(result.museLine?.trim() || '');
+      const next = result.questions ?? [];
+      setClarifyQuestions(next);
+      setClarifyAnswer('');
+      setClarifyTyping(false);
+      setSheetBusy(null);
+      setStep('record');
+      if (prior.length === 0 && (next.length > 0 || (result.museLine?.trim()?.length ?? 0) > 0)) {
+        setSheetPhase('clarify');
+        return;
+      }
+
+      await buildPlanFromClarify(prior);
+    } catch {
+      setStep('record');
+      setSheetBusy(null);
+      await buildPlanFromClarify(prior);
+    }
+  }
+
+  async function submitClarifyAnswer(answer: string) {
+    const trimmed = answer.trim();
+    const questions = clarifyQuestionsRef.current;
+    const history = clarifyHistoryRef.current;
+    if (questions.length === 0 || !trimmed) {
+      setSheetError('Say your answer out loud, or type it.');
+      return;
+    }
+
+    stopNevoSpeech();
+    setSheetError(null);
+    const batch: ClarifyExchange[] = [
+      {
+        questionId: `clarify-turn-${history.length + 1}`,
+        prompt: questions.map((item) => item.prompt).join('\n'),
+        answer: trimmed,
+      },
+    ];
+    const prior = [...history, ...batch];
+    setClarifyHistory(prior);
+    setClarifyAnswer('');
+    setClarifyTyping(false);
+    await buildPlanFromClarify(prior);
+  }
+
+  async function buildPlanFromClarify(prior: ClarifyExchange[]) {
+    const proposal = museLine.trim();
+    let transcript = enrichedTranscript(prior);
+    if (proposal && !transcript.includes(proposal)) {
+      transcript = `${transcript}\n\nAssistant proposal:\n${proposal}`;
+    }
+
+    setClarifyQuestions([]);
+    await extract(transcript);
+  }
+
+  function skipClarifyAndBuild() {
+    stopNevoSpeech();
+    setSheetError(null);
+    void buildPlanFromClarify(clarifyHistory);
+  }
+
+  function advanceClarify() {
+    setSheetError(null);
+    void submitClarifyAnswer(clarifyAnswer);
+  }
+
+  async function extract(transcript: string) {
     if (!transcript) {
-      setNote('Say or type the day first.');
+      setSheetError('Say or type something first.');
+      setSheetPhase('transcript');
       return;
     }
 
     if (extractedFor.current === transcript && lines.length > 0) {
       setCheckError(null);
-      setStep('check');
+      setSheetPhase('tasks');
+      setStep('record');
       return;
     }
 
-    setBusy('Finding the plan in your words…');
+    setSheetPhase(clarifyQuestions.length > 0 ? 'clarify' : 'transcript');
+    setSheetBusy(`${assistant.name} is building your plan…`);
+    setStep('thinking');
     try {
       const draft = await extractMorning({
         transcript,
         timezone,
         spokenAt: new Date().toISOString(),
       }).unwrap();
+      setCoachNote(draft.coachNote?.trim() ? humanAiText(draft.coachNote) : null);
       const namedTimes = new Set(
         draft.commitments
           .filter((item) => item.plannedStartMinute != null)
           .map((item) => item.title.trim().toLowerCase()),
       );
-      const scheduled = layOut(draft.commitments, spokenMinuteNow());
-      setDayTitle(draft.title ?? '');
+      const scheduled = layOut(draft.commitments, layoutAnchor);
+      setDayTitle(humanAiText(draft.title) || 'Today, on purpose');
       setLines(
         scheduled.map((item, index) => ({
           key: `${index}-${item.title}`,
@@ -246,27 +474,43 @@ export function MorningWizard() {
           start: minuteToClock(item.plannedStartMinute),
           area: item.lifeArea ?? 'PERSONAL',
           source: namedTimes.has(item.title.trim().toLowerCase()) ? 'spoken' : 'inferred',
-          approved: false,
+          approved: true,
         })),
       );
       if (scheduled.length === 0) {
-        setLines([emptyLine()]);
+        setLines([{ ...emptyLine(undefined, layoutAnchor), approved: true }]);
       }
       extractedFor.current = transcript;
       setCheckError(null);
-      setStep('check');
-    } catch {
+      setSheetBusy(null);
+      setSheetPhase('tasks');
+      setStep('record');
+    } catch (error) {
+      const status =
+        error && typeof error === 'object' && 'status' in error
+          ? String((error as { status: unknown }).status)
+          : 'failed';
       setStep('record');
       setCanType(true);
-      setNote('Could not extract a plan. Edit the words and try again.');
-    } finally {
-      setBusy(null);
+      if (status === '503') {
+        setSheetError('Task breakdown needs OPENAI_API_KEY in api/.env. Restart the API, or add tasks manually on the next screen.');
+      } else {
+        setSheetError('Could not build tasks. Edit and try again.');
+      }
+      setSheetPhase('transcript');
+      setSheetBusy(null);
     }
+  }
+
+  function approveAllTasks() {
+    setLines((current) => current.map((line) => ({ ...line, approved: true })));
   }
 
   async function save() {
     const transcript = words.trim();
-    const commitments = lines
+    const toSave =
+      lines.some((line) => line.approved) ? lines : lines.map((line) => ({ ...line, approved: true }));
+    const commitments = toSave
       .filter((line) => line.approved)
       .map((line) => ({
         title: line.title.trim(),
@@ -276,24 +520,38 @@ export function MorningWizard() {
       }))
       .filter((item) => item.title.length > 0);
     if (!transcript || commitments.length === 0) {
-      setCheckError('Approve at least one task, or tap the checkmark.');
+      setCheckError('Add at least one task with a title, then save.');
       return;
     }
 
     try {
       const saved = await planMorning({
         timezone,
-        transcript,
+        localDate: planTarget,
+        transcript: planTranscript(),
         title: dayTitle.trim() || null,
         storageKey: clipKey,
         words: clipWords,
+        coachNote,
         commitments,
       }).unwrap();
       await rememberWords(saved.localDate, transcript);
       setClipKey(null);
       setClipWords(null);
+      setSheetPhase(null);
       setStep('record');
-      router.navigate('/history' as Href);
+      setWords('');
+      setLines([]);
+      setDayTitle('');
+      setCoachNote(null);
+      setClarifyQuestions([]);
+      setClarifyAnswer('');
+      setClarifyHistory([]);
+      setMuseLine('');
+      setClarifyTyping(false);
+      extractedFor.current = '';
+      stopNevoSpeech();
+      onSaved?.();
     } catch (err) {
       const message =
         err && typeof err === 'object' && 'data' in err
@@ -303,323 +561,260 @@ export function MorningWizard() {
     }
   }
 
-  const showBack = step !== 'record';
-  const header = (
-    <View style={styles.header}>
-      {showBack ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back to your words"
-          hitSlop={12}
-          onPress={() => {
-            setCanType(words.trim().length > 0);
-            setStep('record');
-          }}
-          style={styles.back}>
-          <SymbolView
-            name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }}
-            size={20}
-            tintColor={theme.text}
-          />
-        </Pressable>
-      ) : null}
-      <ThemedText style={styles.screenTitle}>
-        {step === 'check' ? 'Check the plan' : 'Plan your day'}
-      </ThemedText>
-    </View>
-  );
+  const hasWords = words.trim().length > 0;
+  const nevoSpeaking = useNevoSpeaking();
+  const sheetOpen = sheetPhase !== null;
+  const thinking = step === 'thinking';
+  const nevoPresence: NevoPresence = isRecording
+    ? 'listening'
+    : nevoSpeaking
+      ? 'speaking'
+      : thinking || sheetBusy
+        ? 'thinking'
+        : 'idle';
+  const captureSubtitle =
+    note ??
+    (micBlocked ? 'Microphone off. Use the keyboard icon to type.' : planCopy.subtitle);
+  const [clock, setClock] = useState(formatDayClock());
+  const vibe = planDayVibe();
 
-  if (step === 'check') {
-    return (
-      <View style={[styles.page, { paddingTop: insets.top + Spacing.three }]}>
-        <BusyLock message={busy} />
-        {header}
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          scrollEnabled={!dragging}
-          contentContainerStyle={styles.checkBody}
-          showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeIn.duration(280)} style={styles.dayNameRow}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Day name
-            </ThemedText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="How we built this day"
-              hitSlop={10}
-              onPress={() => setShowHint((open) => !open)}
-              style={styles.hintBtn}>
-              <SymbolView
-                name={{
-                  ios: 'questionmark.circle',
-                  android: 'help_outline',
-                  web: 'help_outline',
-                }}
-                size={16}
-                tintColor={theme.textSecondary}
-              />
-            </Pressable>
-          </Animated.View>
-          {showHint ? (
-            <Animated.View
-              entering={FadeIn.duration(200)}
-              style={[styles.hint, { backgroundColor: theme.primary }]}>
-              <ThemedText type="smallBold" style={styles.bannerTitle}>
-                We turned your words into a day
-              </ThemedText>
-              <ThemedText type="small" style={styles.bannerBody}>
-                {agendaSummary(
-                  lines
-                    .filter((line) => line.title.trim().length > 0)
-                    .map((line) => ({
-                      key: line.key,
-                      title: line.title,
-                      plannedStartMinute: clockToMinute(line.start),
-                      plannedDurationMinutes: parseMinutes(line.minutes),
-                      lifeArea: line.area,
-                    })),
-                )}
-                {lines.some((line) => line.source === 'inferred')
-                  ? ' · Things without a time start from when you spoke, in the open gaps.'
-                  : ''}
-              </ThemedText>
-            </Animated.View>
-          ) : null}
-          <Animated.View entering={FadeInDown.duration(320).delay(40)}>
-            <TextInput
-              value={dayTitle}
-              onChangeText={setDayTitle}
-              placeholder="Name this day"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.titleInput,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: theme.border,
-                  color: theme.text,
-                },
-              ]}
-            />
-          </Animated.View>
-          <ThemedText type="small" themeColor="textSecondary">
-            Tasks
-          </ThemedText>
-          <PlanSortList
-            lines={lines}
-            onChange={(next) =>
-              setLines((current) => current.map((item) => (item.key === next.key ? next : item)))
-            }
-            onRemove={(key) => setLines((current) => current.filter((item) => item.key !== key))}
-            onReorder={setLines}
-            onDragChange={setDragging}
-          />
-          <Animated.View entering={FadeInUp.duration(280).delay(160)} style={styles.footer}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add another task"
-              onPress={() =>
-                setLines((current) => [...current, emptyLine(current[current.length - 1])])
-              }
-              style={[styles.plus, { backgroundColor: theme.primary, borderColor: theme.primary }]}>
-              <SymbolView
-                name={{ ios: 'plus', android: 'add', web: 'add' }}
-                size={22}
-                tintColor="#FFFFFF"
-              />
-            </Pressable>
-            {checkError ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                {checkError}
-              </ThemedText>
-            ) : null}
-            <PillButton
-              label={
-                lines.every((line) => line.approved)
-                  ? 'Save the day'
-                  : `Save ${lines.filter((line) => line.approved).length} approved`
-              }
-              loading={saveState.isLoading}
-              onPress={() => void save()}
-            />
-          </Animated.View>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  const allowType = canType || micBlocked;
+  useEffect(() => {
+    const tick = setInterval(() => setClock(formatDayClock()), 30_000);
+    return () => clearInterval(tick);
+  }, []);
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.page, { paddingTop: insets.top + Spacing.three }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <BusyLock message={busy} />
-      {header}
-      <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-        Speak it. Then we book it.
-      </ThemedText>
+    <View style={styles.recordShell}>
+      <PlanGradientBackdrop rich={false} active={sheetOpen} />
       <View
         style={[
-          styles.words,
-          {
-            backgroundColor: theme.inputBackground,
-            borderColor: theme.border,
-          },
+          styles.page,
+          { paddingTop: insets.top + Spacing.three, paddingBottom: insets.bottom + PlanTabBarInset },
         ]}>
-        {isRecording ? (
-          <ThemedText style={[styles.wordsInput, { color: theme.text }]}>
-            {words || 'Listening…'}
-          </ThemedText>
-        ) : allowType ? (
-          <TextInput
-            value={words}
-            onChangeText={setWords}
-            multiline
-            placeholder="Fix anything we misheard, or type here."
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.wordsInput, { color: theme.text }]}
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.timeRow}>
+          <SymbolView name={{ ios: 'clock', android: 'schedule', web: 'schedule' }} size={14} tintColor={PlanSurface.accent} />
+          <ThemedText style={styles.timeText}>{clock}</ThemedText>
+          <ThemedText style={styles.timeDot}>·</ThemedText>
+          <ThemedText style={styles.timeToday}>Today only</ThemedText>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(80).duration(420)} style={styles.heroBlock}>
+          <PlanAssistantAvatar
+            assistant={assistant}
+            size="lg"
+            presence={nevoPresence}
+            interactive
+            onPress={() => void speakNevo(nevoTapLine(assistant))}
           />
-        ) : (
-          <ThemedText themeColor="textSecondary" style={styles.wordsInput}>
-            Tap the mic and speak.
-          </ThemedText>
-        )}
-      </View>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-        {isRecording ? 'Listening. Check sends it. X tosses it.' : note}
-      </ThemedText>
-      <PlanMic
-        recording={isRecording}
-        durationMillis={durationMillis}
-        metering={metering}
-        onStart={() => void start()}
-        onSend={() => void stopAndHear()}
-        onDiscard={() => void discard()}
-      />
-      {canType && words.trim().length > 0 ? (
-        <View style={styles.continueRow}>
+          <ThemedText style={styles.greeting}>{planCopy.greeting}</ThemedText>
+          <ThemedText style={styles.heroTitle}>{planCopy.title}</ThemedText>
+          <ThemedText style={styles.assistantLine}>{assistantGreeting(assistant)}</ThemedText>
+          <ThemedText style={styles.heroSubtitle}>{humanAiText(planCopy.subtitle)}</ThemedText>
+        </Animated.View>
+
+        <Animated.View entering={FadeIn.delay(200).duration(500)} style={styles.flowRow}>
+          <ThemedText style={styles.flowLabelActive}>Speak</ThemedText>
+          <ThemedText style={styles.flowSep}>→</ThemedText>
+          <ThemedText style={styles.flowLabel}>Review</ThemedText>
+          <ThemedText style={styles.flowSep}>→</ThemedText>
+          <ThemedText style={styles.flowLabel}>Save</ThemedText>
+        </Animated.View>
+
+        <ThemedText style={styles.vibeLine}>{vibe.sub}</ThemedText>
+
+        <Animated.View entering={FadeInDown.delay(280).duration(400)} style={styles.landingActions}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Continue to the plan"
-            onPress={() => void extract()}
-            style={[styles.continue, { backgroundColor: theme.primary }]}>
-            <ThemedText type="small" style={styles.continueLabel}>
-              Continue
+            onPress={openCaptureSheet}
+            style={[styles.startCta, { backgroundColor: PlanSurface.accent }]}>
+            <ThemedText type="bodyMedium" style={{ color: PlanSurface.bgDeep }}>
+              Ready to start
             </ThemedText>
           </Pressable>
-        </View>
-      ) : null}
-    </KeyboardAvoidingView>
+          {hasWords ? (
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={openTranscriptSheet}>
+              <ThemedText type="caption" style={{ color: PlanSurface.textMuted, textAlign: 'center' }}>
+                Resume from transcript
+              </ThemedText>
+            </Pressable>
+          ) : null}
+        </Animated.View>
+      </View>
+
+      <PlanMorningSheet
+        open={sheetOpen}
+        phase={sheetPhase ?? 'capture'}
+        capture={
+          sheetPhase === 'capture'
+            ? {
+                subtitle: captureSubtitle,
+                isRecording,
+                thinking,
+                metering,
+                durationMillis,
+                onStart: () => void start(),
+                onSend: () => void stopAndHear(),
+                onDiscard: () => void discard(),
+              }
+            : null
+        }
+        onOpenTranscript={openTranscriptSheet}
+        words={words}
+        busy={sheetBusy}
+        error={sheetError}
+        onChangeWords={setWords}
+        onClose={closeSheet}
+        onContinueFromTranscript={continueFromTranscript}
+        onContinueFromClarify={continueFromClarify}
+        onSkipClarify={skipClarifyAndBuild}
+        onBackToTranscript={backToTranscript}
+        assistant={assistant}
+        museLine={museLine}
+        clarifyQuestions={clarifyQuestions}
+        clarifyAnswer={clarifyAnswer}
+        onClarifyAnswerChange={setClarifyAnswer}
+        onStopNevoVoice={() => stopNevoSpeech()}
+        coachNote={coachNote}
+        clarifyCapture={
+          sheetPhase === 'clarify'
+            ? {
+                isRecording: clarifyVoiceFor != null && isRecording,
+                durationMillis,
+                typing: clarifyTyping,
+                onToggleTyping: () => setClarifyTyping((open) => !open),
+                onStart: () => void startClarifyRecord(),
+                onSend: () => void stopAndHear(),
+                onDiscard: () => void discard(),
+              }
+            : null
+        }
+        nevoSpeaking={nevoSpeaking}
+        dayTitle={dayTitle}
+        onDayTitleChange={setDayTitle}
+        lines={lines}
+        onLineChange={(next) =>
+          setLines((current) => current.map((item) => (item.key === next.key ? next : item)))
+        }
+        onLineRemove={(key) => setLines((current) => current.filter((item) => item.key !== key))}
+        onReorder={setLines}
+        onDragChange={setDragging}
+        onAddLine={() =>
+          setLines((current) => [
+            ...current,
+            { ...emptyLine(current[current.length - 1], layoutAnchor), approved: true },
+          ])
+        }
+        onApproveAll={approveAllTasks}
+        checkError={checkError}
+        saveLoading={saveState.isLoading}
+        onSave={() => void save()}
+        scrollLocked={dragging}
+        saveLabel={planCopy.saveLabel}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  recordShell: {
+    flex: 1,
+  },
   page: {
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.three,
-    gap: Spacing.three,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  back: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-  },
-  screenTitle: {
-    fontFamily: FontFamily.medium,
-    fontSize: 22,
-    lineHeight: 28,
-    flex: 1,
-  },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  words: {
-    flex: 1,
-    width: '100%',
-    borderWidth: 1,
-    borderRadius: Radius.card,
-    padding: Spacing.three,
-  },
-  wordsInput: {
-    flex: 1,
-    fontFamily: FontFamily.regular,
-    fontSize: 17,
-    lineHeight: 26,
-    textAlignVertical: 'top',
-  },
-  continueRow: {
-    alignItems: 'flex-end',
-  },
-  continue: {
-    minHeight: 40,
-    paddingHorizontal: Spacing.four,
-    borderRadius: Radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueLabel: {
-    color: '#FFFFFF',
-    fontFamily: FontFamily.medium,
-  },
-  note: {
-    alignSelf: 'stretch',
-  },
-  checkBody: {
-    gap: Spacing.three,
     paddingBottom: Spacing.four,
+    gap: Spacing.three,
   },
-  dayNameRow: {
+  timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: PlanSurface.card,
+    borderWidth: 1,
+    borderColor: PlanSurface.borderSoft,
   },
-  hintBtn: {
-    width: 22,
-    height: 22,
+  timeText: {
+    ...Typography.caption,
+    color: PlanSurface.text,
+  },
+  timeDot: {
+    color: PlanSurface.textDim,
+  },
+  timeToday: {
+    ...Typography.micro,
+    color: PlanSurface.textMuted,
+  },
+  heroBlock: {
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hint: {
-    borderRadius: 10,
-    padding: Spacing.three,
     gap: Spacing.one,
+    paddingTop: Spacing.two,
   },
-  footer: {
-    gap: Spacing.three,
-    alignItems: 'center',
+  assistantLine: {
+    ...Typography.bodySmall,
+    color: PlanSurface.accent,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.two,
   },
-  plus: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    borderWidth: 1,
+  flowRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: Spacing.two,
+    gap: 10,
   },
-  bannerTitle: {
-    color: '#FFFFFF',
+  flowLabel: {
+    ...Typography.caption,
+    color: PlanSurface.textDim,
   },
-  bannerBody: {
-    color: '#FFFFFF',
+  flowLabelActive: {
+    ...Typography.caption,
+    color: PlanSurface.accent,
   },
-  titleInput: {
-    width: '100%',
-    minHeight: 42,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: Spacing.three,
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
+  flowSep: {
+    ...Typography.caption,
+    color: PlanSurface.textDim,
+  },
+  vibeLine: {
+    ...Typography.bodySmall,
+    color: PlanSurface.textMuted,
+    textAlign: 'center',
     lineHeight: 22,
+    paddingHorizontal: Spacing.two,
+    flex: 1,
+  },
+  greeting: {
+    ...Typography.overline,
+    color: PlanSurface.accent,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  heroTitle: {
+    ...Typography.displayHero,
+    color: PlanSurface.text,
+    textAlign: 'center',
+  },
+  heroSubtitle: {
+    ...Typography.body,
+    maxWidth: 320,
+    lineHeight: 24,
+    color: PlanSurface.textMuted,
+  },
+  landingActions: {
+    gap: Spacing.two,
+    paddingTop: Spacing.two,
+  },
+  startCta: {
+    minHeight: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
   },
 });
