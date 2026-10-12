@@ -16,7 +16,8 @@ EAS and Terraform apply do not run on every push.
 | Secret | Used by |
 |---|---|
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Infra Terraform state |
-| `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY` | Infra, website Pages, API Workers + Containers |
+| `CLOUDFLARE_DEPLOY_TOKEN` | **Wrangler deploy** — API Containers + website Pages (Workers Scripts + Pages Edit) |
+| `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY` | Terraform / DNS (can overlap with deploy token) |
 | `CLOUDFLARE_ACCOUNT_ID` | Wrangler |
 | `VITE_LOOPS_FORM_ID` | Website build (optional) |
 | `VITE_SUPPORT_EMAIL` | Website build (optional) |

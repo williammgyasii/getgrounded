@@ -59,5 +59,5 @@ API lives at **`api.get-grounded.app`** (Cloudflare Containers), not this Pages 
 
 Secrets live in GitHub environment **`prod`**. See [`.github/README.md`](../.github/README.md).
 
-Required: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  
+Required: `CLOUDFLARE_DEPLOY_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  
 Optional at build time: `VITE_LOOPS_FORM_ID`, `VITE_SUPPORT_EMAIL`, `VITE_HERO_VIDEO_URL`

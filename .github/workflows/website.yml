@@ -67,7 +67,7 @@ jobs:
       - uses: cloudflare/wrangler-action@v3
         id: deploy
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: website
           command: pages deploy dist --project-name=get-grounded-web --branch=pr-${{ github.event.pull_request.number }}
@@ -129,7 +129,7 @@ jobs:
           VITE_HERO_VIDEO_URL: ${{ secrets.VITE_HERO_VIDEO_URL }}
       - uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: website
           command: pages deploy dist --project-name=get-grounded-web --branch=main
