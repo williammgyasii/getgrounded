@@ -67,4 +67,6 @@ gh secret set EXPO_TOKEN --env prod --repo williammgyasii/getgrounded
 
 3. Re-run **Mobile → Run workflow** or push a tag that includes `mobile/**` changes.
 
+CI queues **Android** production builds only until iOS distribution credentials are configured (`eas credentials:configure-build -p ios -e production` locally, then switch workflow to `--platform all`).
+
 Local builds (same profile as CI): `cd mobile && eas build --profile production --platform android --non-interactive`.

@@ -102,4 +102,5 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - run: eas build --profile production --platform all --non-interactive --no-wait
+      # iOS needs interactive credential setup first: eas credentials:configure-build -p ios -e production
+      - run: eas build --profile production --platform android --non-interactive --no-wait
