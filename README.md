@@ -90,10 +90,12 @@ Hear/extract need `gcloud auth application-default login` once. Local Postgres i
 
 Same repo, separate workflows (path filters):
 
-| Workflow | Runs when | Does |
+| Workflow | CI (PR / `main`) | CD |
 |---|---|---|
-| `.github/workflows/ci.yml` | PR or push to `main` | Path-filtered test/build/plan — **no prod deploy** |
-| `.github/workflows/release.yml` | Tag `v*` or **Run workflow** | Deploy API, website, EAS production |
+| `api.yml` | API tests | Tag `v*` → Cloudflare API |
+| `website.yml` | Lint + build (+ PR preview) | Tag `v*` → Pages |
+| `mobile.yml` | Typecheck | Tag `v*` → EAS production |
+| `infra.yml` | Plan | Manual apply only |
 
 Mobile is not gated until we build the app.
 

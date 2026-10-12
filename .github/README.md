@@ -1,32 +1,17 @@
 # GitHub Actions
 
-Two workflows. **CI** on every PR and merge to `main`. **Release (CD)** only when you push a **version tag**.
+Four pipelines — **one per area**. Each has **CI** (PR + merge to `main`) and **CD** (release tag or manual), except infra (CD = Terraform apply only).
 
-## CI (`ci.yml`)
+| Workflow | CI (PR / `main`) | CD (production) |
+|----------|----------------|-----------------|
+| **`api.yml`** | .NET tests + worker test/dry-run | Push tag **`v*`** or **Run workflow** → Cloudflare Containers |
+| **`website.yml`** | Lint + build; PR preview comment | Tag **`v*`** or **Run workflow** → Pages |
+| **`mobile.yml`** | Typecheck | Tag **`v*`** or **Run workflow** → EAS production |
+| **`infra.yml`** | fmt, validate, plan | **Run workflow** with **Apply** checked (no tag deploy) |
 
-| Trigger | What runs |
-|---------|-----------|
-| **Pull request → `main`** | Path-filtered jobs (see below). Website PRs also get a Cloudflare **preview** comment. |
-| **Push to `main`** | Same checks — **no production deploy**. |
-| **Run workflow** (optional) | Terraform **apply** if you enable `terraform_apply` (infra only). |
+Path filters: only the workflow whose folder changed runs on PR/`main` (except **tag pushes ignore paths** — every app workflow with `tags: v*` can run on release).
 
-One Actions run per event. A `changes` job decides which areas to test:
-
-| Job | Paths |
-|-----|--------|
-| API — .NET + worker | `api/**`, `api-worker/**`, `global.json` |
-| Website — lint + build | `website/**` |
-| Mobile — typecheck | `mobile/**` |
-| Infra — fmt, validate, plan | `infra/terraform/**` |
-
-Editing `.github/workflows/**` runs **all** of the above.
-
-## Release / CD (`release.yml`)
-
-| Trigger | What runs |
-|---------|-----------|
-| **Push tag `v*`** (e.g. `v1.0.0`) | Deploy **API** (Cloudflare Containers), **website** (Pages), **EAS production** mobile build |
-| **Run workflow** | Same deploy jobs (emergency redeploy) |
+## Release
 
 ```bash
 git checkout main && git pull
@@ -34,17 +19,17 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-Infra is **not** applied on release tags. Use **CI → Run workflow → terraform_apply** when you intend to change Terraform.
+That triggers **API**, **Website**, and **Mobile** CD jobs in parallel. Infra is unchanged unless you run **Infra → Run workflow → apply**.
 
 ## Secrets (environment `prod`)
 
-| Secret | Used for |
-|--------|----------|
-| `CLOUDFLARE_DEPLOY_TOKEN` | Wrangler — API + website deploy |
+| Secret | Used by |
+|--------|---------|
+| `CLOUDFLARE_DEPLOY_TOKEN` | API + website Wrangler deploy |
 | `CLOUDFLARE_ACCOUNT_ID` | Wrangler |
-| `CLOUDFLARE_API_TOKEN` / email + global key | Terraform plan/apply |
-| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Terraform state backend |
+| `CLOUDFLARE_API_TOKEN` / email + global key | Infra Terraform |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Infra state |
 | `VITE_*` | Website build |
-| `EXPO_TOKEN` | EAS on release |
+| `EXPO_TOKEN` | Mobile EAS |
 
-Worker runtime secrets (`DATABASE_URL`, etc.) live on the **`get-grounded-api`** Worker in Cloudflare, not in GitHub.
+Worker secrets (`DATABASE_URL`, …) live on **`get-grounded-api`** in Cloudflare, not GitHub.

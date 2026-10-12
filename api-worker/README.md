@@ -36,7 +36,7 @@ npm run dev
 npm run deploy
 ```
 
-CI: `.github/workflows/ci.yml` tests on PR/`main`. Production deploy: `.github/workflows/release.yml` on tag `v*`. Update Worker secrets locally when `api/.env` changes; release deploy does not upload them.
+CI/CD: `.github/workflows/api.yml` — tests on PR/`main`; deploy on tag `v*`. Update Worker secrets locally when `api/.env` changes; deploy does not upload them.
 
 ## Shut down legacy Cloud Run
 
