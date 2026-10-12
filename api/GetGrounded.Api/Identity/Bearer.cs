@@ -1,4 +1,4 @@
-namespace GetGrounded.Api.Http;
+namespace GetGrounded.Api.Identity;
 
 internal static class Bearer
 {

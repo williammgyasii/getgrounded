@@ -1,14 +1,16 @@
-services:
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: getgrounded
-      POSTGRES_PASSWORD: getgrounded
-      POSTGRES_DB: getgrounded
-    ports:
-      - "5432:5432"
-    volumes:
-      - getgrounded_pg:/var/lib/postgresql/data
+# Local API — same container shape as Cloud Run (port 8080 inside, 5217 on the Mac).
+# Database is Neon via DATABASE_URL in api/.env — not a local Postgres container.
 
-volumes:
-  getgrounded_pg:
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5217:8080"
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    restart: unless-stopped

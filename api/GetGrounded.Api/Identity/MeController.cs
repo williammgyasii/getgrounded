@@ -1,12 +1,11 @@
-using GetGrounded.Api.Http;
-using GetGrounded.Application.Auth;
+using GetGrounded.Application.Identity;
 using Microsoft.AspNetCore.Mvc;
 
-namespace GetGrounded.Api.Controllers;
+namespace GetGrounded.Api.Identity;
 
 [ApiController]
 [Route("me")]
-public sealed class MeController(AuthService auth) : ControllerBase
+public sealed class MeController(AuthManager auth) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)

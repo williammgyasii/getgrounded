@@ -1,9 +1,9 @@
-using GetGrounded.Api;
-using GetGrounded.Api.Http;
 using GetGrounded.Application;
 using GetGrounded.Infrastructure;
+using GetGrounded.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
-LocalEnv.Load();
+GetGrounded.Api.LocalEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +13,15 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-app.UseRequestLog();
+if (app.Environment.IsDevelopment()
+    && !string.IsNullOrWhiteSpace(builder.Configuration["DATABASE_URL"]))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<GroundedDbContext>>();
+    await using var db = await dbFactory.CreateDbContextAsync();
+    await db.Database.MigrateAsync();
+}
+
 app.MapControllers();
 
 app.Run();

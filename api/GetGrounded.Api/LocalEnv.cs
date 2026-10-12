@@ -40,7 +40,7 @@ internal static class LocalEnv
             var split = line.Split('=', 2);
             var key = split[0].Trim();
             var value = split[1].Trim().Trim('"');
-            if (key.Length == 0 || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+            if (key.Length == 0 || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key)))
             {
                 continue;
             }
