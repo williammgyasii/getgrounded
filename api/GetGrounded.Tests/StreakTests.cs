@@ -1,4 +1,4 @@
-using GetGrounded.Domain;
+using GetGrounded.Domain.Book;
 
 namespace GetGrounded.Tests;
 

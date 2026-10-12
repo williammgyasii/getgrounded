@@ -1,39 +1,39 @@
 using GetGrounded.Application.Book;
-using GetGrounded.Application.Voice;
+using GetGrounded.Application.Hear;
 
 namespace GetGrounded.Tests;
 
 public class DayPlannerTests
 {
     [Fact]
-    public void Untimed_lunch_sits_in_the_gap_after_the_spoken_hour()
+    public void LayOut_mixed_timed_and_untimed_keeps_untimed_unscheduled()
     {
-        var laid = DayPlanner.LayOut(
-            [
-                new PlannedItem("Gym", 60, 7 * 60, "HEALTH"),
-                new PlannedItem("Get lunch"),
-                new PlannedItem("Ship the test", 90, 14 * 60, "WORK"),
-            ],
-            spokenMinute: 8 * 60);
+        var items = new[]
+        {
+            new PlannedItem("Team standup", 30, 540, "WORK"),
+            new PlannedItem("Grocery run", 30, null, "HOME"),
+            new PlannedItem("Read", 30, null, "LEARNING"),
+        };
 
-        Assert.Equal("Gym", laid[0].Title);
-        Assert.Equal(7 * 60, laid[0].PlannedStartMinute);
-        Assert.Equal("Get lunch", laid[1].Title);
-        Assert.Equal(8 * 60, laid[1].PlannedStartMinute);
-        Assert.Equal(45, laid[1].PlannedDurationMinutes);
-        Assert.Equal("HOME", laid[1].LifeArea);
-        Assert.Equal(14 * 60, laid[2].PlannedStartMinute);
+        var laid = DayPlanner.LayOut(items, 0);
+
+        Assert.Equal(540, laid[0].PlannedStartMinute);
+        Assert.Null(laid[1].PlannedStartMinute);
+        Assert.Null(laid[2].PlannedStartMinute);
     }
 
     [Fact]
-    public void Spoken_time_keeps_later_work_from_sliding_into_the_morning()
+    public void LayOut_all_untimed_still_packs_from_spoken_minute()
     {
-        var laid = DayPlanner.LayOut(
-            [new PlannedItem("Read"), new PlannedItem("Walk the dog")],
-            spokenMinute: 16 * 60 + 10);
+        var items = new[]
+        {
+            new PlannedItem("Email", 30, null, "WORK"),
+            new PlannedItem("Walk", 30, null, "HEALTH"),
+        };
 
-        Assert.Equal(16 * 60 + 10, laid[0].PlannedStartMinute);
-        Assert.Equal(16 * 60 + 40, laid[1].PlannedStartMinute);
-        Assert.All(laid, item => Assert.NotNull(item.PlannedDurationMinutes));
+        var laid = DayPlanner.LayOut(items, 480);
+
+        Assert.Equal(480, laid[0].PlannedStartMinute);
+        Assert.Equal(510, laid[1].PlannedStartMinute);
     }
 }
