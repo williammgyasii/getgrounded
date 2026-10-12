@@ -2,7 +2,7 @@
 
 This is the **whole book**, not the morning screen. Catalog: [`FEATURE-CATALOG.md`](../../FEATURE-CATALOG.md). Companion: [phase1-book-design](./2026-08-26-phase1-book-design.md).
 
-Postgres is the system of record. Firebase is login only. R2 is bytes. Vertex is ears and drafts. `.NET` validates and writes. Stripe (later) is the receipt. Nothing important lives only in a JSON column or on the phone.
+Postgres is the system of record. Firebase is login only. R2 is bytes. ElevenLabs Scribe hears; OpenAI drafts. `.NET` validates and writes. Stripe (later) is the receipt. Nothing important lives only in a JSON column or on the phone.
 
 **Relational and transactional.** Foreign keys stay. Money, shares, and “did we book this clip?” are one SQL transaction. “No constraints” means: do not weld *product* into the wrong table (group on a personal day, `is_pro` on `users`, a stored streak). It does not mean drop FKs.
 
@@ -211,7 +211,7 @@ Consent, quiet hours, max frequency, timezone. No consent row → no call.
 
 ### `call_sessions`
 
-Twilio/Vertex id, started/ended, outcome, `clip_id` after we book the reflection. Meter increment in the **same** transaction as the session close.
+Twilio call id, started/ended, outcome, `clip_id` after we book the reflection. Meter increment in the **same** transaction as the session close.
 
 ---
 
@@ -310,4 +310,4 @@ Every FK that is not already the left side of a unique/composite index gets its 
 
 ## Out of this document
 
-Expo screens, Vertex Agent Engine, Stripe product ids, the morning wizard UI. Those consume this book. They do not replace it.
+Expo screens, voice vendors, Stripe product ids, the morning wizard UI. Those consume this book. They do not replace it.

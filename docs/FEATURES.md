@@ -45,6 +45,14 @@ Stone floor stays. Ink is for **words**. Forest is for **action**.
 
 The raised mic is forest, not black.
 
+### Typography
+
+| Role | Font | Use |
+|---|---|---|
+| **Type** | Inter (400–700) | Body, headlines, tabs, buttons — single mobile UI sans |
+
+Tokens live in `mobile/src/constants/theme.ts` as `Typography.*`. Custom fonts: never mix `fontWeight` with `fontFamily` on the same text node.
+
 ---
 
 ## Core loop (prove this first)
@@ -107,10 +115,10 @@ Nothing in that list needs a sixth tab. New work **fills** a tab.
 
 ## Voice (do not turn Talk into a form)
 
-- **Quick Log** — cheap: morning, evening, midday, short updates. Phone records. API hears on Vertex, extracts, books.
-- **Talk to Coach** — expensive: weekly, recovery, conflicts, Ask My Life, phone. Gemini Live later.
-- Vertex hears. **.NET + Postgres** remember.
-- Secrets stay on the server. The phone never talks to Google AI.
+- **Quick Log** — cheap: morning, evening, midday, short updates. Phone records. API hears on ElevenLabs Scribe, extracts with OpenAI, books in Postgres.
+- **Talk to Coach** — expensive: weekly, recovery, conflicts, Ask My Life, phone. Later slice.
+- ElevenLabs hears. GPT drafts. **.NET + Postgres** remember.
+- Secrets stay on the server. The phone never talks to Scribe or OpenAI directly.
 
 Expo Go can type the day. Mic Quick Log does not need WebRTC.
 
@@ -118,13 +126,19 @@ Expo Go can type the day. Mic Quick Log does not need WebRTC.
 
 ## Stack we actually run (prompt vs now)
 
-The master prompt still says Render. Live GetGrounded is:
+**Local dev (rebuild-api branch):**
+
+- API: `dotnet run` in `api/` → `http://<mac-lan-ip>:5217`
+- Phone: `EXPO_PUBLIC_API_URL` in `mobile/.env` (same IP, not `localhost`)
+- Data: Neon Postgres (`DATABASE_URL` in `api/.env`)
+- Auth: Firebase on phone; API verifies token (Identity slice)
+
+**Deployed (legacy, until rebuild parity):**
 
 - API: Cloud Run (`https://dev.get-grounded.app`)
-- Data: Cloud SQL Postgres
-- Auth: Firebase
-- Audio objects: Cloudflare R2
-- Infra: Terraform in `environments/dev`
+- Data: Neon Postgres
+- Audio: Cloudflare R2
+- Infra: Terraform in `infra/`
 
 Firebase is the phone platform (auth, later FCM / Crashlytics). It is not the book.
 
@@ -132,7 +146,7 @@ Firebase is the phone platform (auth, later FCM / Crashlytics). It is not the bo
 
 ## What we are not building in this UI slice
 
-- Live Speech + Gemini on a deployed clip (adapters are in the API; ship when Cloud Run env is applied).
+- Clip playback from R2 (`GET /voice/clips/{id}`).
 - In-app microphone UI (typed Talk first).
 - Expo UI native controls (Expo Go cannot host them).
 - A sixth tab, shop, XP, or habit categories the user has to pick.

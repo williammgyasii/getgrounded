@@ -19,7 +19,7 @@ Plan your day
     Save → Today
 ```
 
-No giant center mic. No new routes. No Vertex streaming. No new EAS build in this slice.
+No giant center mic. No new routes. No streaming STT. No new EAS build in this slice.
 
 ---
 
@@ -42,7 +42,7 @@ Continue
 
 - Forest `#2F4A3C` mic, ~48pt, pulse + thin halo while recording. Waves may sit under that row, not a 168pt stage.
 - Mic is the record/stop control. It is not Continue.
-- Words stay visible while recording. Placeholder: “Listening…” until Vertex returns, or live captions if the native module is already in the APK.
+- Words stay visible while recording. Placeholder: “Listening…” until Scribe returns, or live captions if the native module is already in the APK.
 - Keyboard and tab bar: composer row sits above the tab bar; `paddingBottom` uses the safe area.
 
 Check the plan and Thinking keep their current structure, plus the header back described below.
@@ -71,6 +71,6 @@ Thinking has the header chevron only. No extra back link.
 ## Out of this slice
 
 - `expo-speech-recognition` / new native build (live captions while talking).
-- Vertex streaming STT.
+- Streaming STT.
 - Evening composer.
 - Visual redesign of Check the plan beyond the header chevron.

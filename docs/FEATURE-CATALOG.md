@@ -8,7 +8,7 @@ Philosophy: **Stop tracking. Start talking.** The user lives. They speak. The so
 User voice → transcript → AI interpretation → .NET validates → Postgres
 ```
 
-Postgres is the book. Vertex (Speech + Gemini), Firebase, and Cloudflare are services around it.
+Postgres is the book. ElevenLabs Scribe, OpenAI, Firebase, and Cloudflare R2 are services around it.
 
 ---
 
@@ -30,8 +30,8 @@ Postgres is the book. Vertex (Speech + Gemini), Firebase, and Cloudflare are ser
 | Morning plan | Notification: “Morning. What’s the plan today?” Opens Talk. User speaks the day. AI extracts commitments. High confidence saves; only ask if unsure. | MVP | Talk, Today |
 | Evening reflection | “How did today actually go?” Speak the truth. AI reconciles against the morning plan. | MVP | Talk, Today |
 | Midday update | “Finished the challenge. Move reading to the bus.” Complete, reschedule, cancel, partial, add, unplanned win — by voice. | MVP | Talk |
-| Quick Log | Cheap path: record → `POST /voice/clips` → Speech → Gemini JSON → `.NET` book. Morning, evening, midday, short updates. | MVP | Talk |
-| Talk to Coach | Gemini Live (or Chirp speak) when conversation earns it: week, recovery, conflicts, Ask My Life, phone. Not an ElevenLabs agent. | Next | Talk |
+| Quick Log | Cheap path: record → `POST /voice/hear` → Scribe → `POST /voice/extract` → GPT JSON → `.NET` book. Morning, evening, midday, short updates. | MVP | Talk |
+| Talk to Coach | Live conversation when it earns it: week, recovery, conflicts, Ask My Life, phone. Separate from Quick Log. | Next | Talk |
 | Voice commands | “What’s left today?” “Move everything after nine to tomorrow.” “How consistent have I been with reading?” Voice is the OS. | Next | Talk |
 | Client nav tools | Agent can `navigateToToday`, `openWeeklyReview`, `openReflection`, `showGoal`, `openHistory`. | Next | Talk → other tabs |
 | Agent tools (server) | get/create/update commitments, unplanned wins, finish check-in/reflection, week, history, goals, routines, memory. The model talks. .NET writes. | Next | — |
@@ -138,7 +138,7 @@ Expo, React Native, TypeScript. Typed Talk works in Expo Go. Mic Quick Log does 
 
 ASP.NET: Api / Application / Domain / Infrastructure. Business brain. Validates AI. Owns entitlements.
 
-**Live now:** Cloud Run + Cloud SQL Postgres (`https://dev.get-grounded.app`). The master prompt said Render; we are not going back.
+**Live now:** Cloud Run container + Neon Postgres (`https://dev.get-grounded.app`).
 
 ### Firebase (phone platform only)
 
@@ -158,9 +158,9 @@ DNS, private R2 (voice, why-recordings, drops, exports), Workers / Queues / Work
 
 R2: short-lived signed upload/download. No public permanent audio URLs. API authorizes first.
 
-### Vertex
+### Voice AI
 
-Speech-to-Text hears. Gemini extracts and reconciles as JSON. `.NET` validates. Never invent the score. No OpenAI. No ElevenLabs ticket.
+ElevenLabs Scribe hears (full transcript + optional word times). OpenAI extracts and reconciles as JSON. `.NET` validates. Never invent the score. No ElevenLabs conversational agent ticket on the Quick Log path.
 
 ### Notifications
 
@@ -183,7 +183,7 @@ User, UserSettings, DailyCheckIn, VoiceSession, Commitment, Accomplishment, Rout
 ## 11. Security (non-negotiable)
 
 - No server secrets in Expo. Phone holds public config only.
-- Secrets in the host secret store (Secret Manager today): R2, DATABASE_URL, Firebase admin. Vertex uses ADC on Cloud Run.
+- Secrets in the host secret store (Secret Manager today): R2, DATABASE_URL, Firebase admin, ElevenLabs, OpenAI.
 - Expo never talks to Postgres.
 - R2 private. Upload URLs 5–10 min. Download 5–15 min. Ownership check first.
 - Audio retention: delete after transcription (default for daily logs), 30 days, or keep. Exceptions: goal-why, partner drops, user-saved.
@@ -226,7 +226,7 @@ Possible later tiers: Free (quick log, summaries, streak) · Pro (coach, week, A
 
 **Later:** partners, drops, shared goals, Ask My Life, calendar, deeper coaching, billing.
 
-**Calls:** Vertex or Twilio later, quiet hours, limits, Cloudflare wait/retry, post-call reconcile, consent.
+**Calls:** Twilio or similar later, quiet hours, limits, Cloudflare wait/retry, post-call reconcile, consent.
 
 ---
 

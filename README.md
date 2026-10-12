@@ -26,14 +26,14 @@ Already on this machine:
 |---|---|
 | Node 26 / npm 11 | Expo |
 | .NET 10 | API |
-| Docker | API container |
+| Docker | Local API (same image shape as Cloud Run) |
 | Terraform 1.15 | Cloudflare R2 |
 | GitHub CLI (`gh`) as `williammgyasii` | repo + PRs |
 | EAS CLI 22 | Expo development builds later |
 | gcloud | Cloud Run + Cloud SQL |
 | Wrangler 4.12 | Cloudflare Workers / R2 |
 | Firebase CLI 15 | Auth / App Check later |
-| ElevenLabs CLI 0.5 | Parked. Voice is Vertex now. |
+| ElevenLabs CLI 0.5 | Scribe STT in dev |
 | `dotnet ef` | migrations later |
 | Postgres client | local DB later |
 | Xcode | iOS simulator |
@@ -57,17 +57,16 @@ bash scripts/check-tooling.sh
 Do **not** deploy to Cloud Run to try a mic tap. Point Expo at this Mac. Deploy only when a slice is ready.
 
 ```text
-Phone  →  http://<mac-lan-ip>:5217  →  dotnet run
-                                    →  local Docker Postgres
-                                    →  Vertex via gcloud ADC
+Phone  →  http://<mac-lan-ip>:5217  →  docker compose (api/)
+                                    →  Neon Postgres (DATABASE_URL)
+                                    →  ElevenLabs Scribe + OpenAI (api/.env)
 Firebase Auth stays the live project (same login).
 ```
 
 ```bash
-# Terminal 1 — book
+# Terminal 1 — API (Docker, same as Cloud Run)
 cd api
-docker compose up -d
-dotnet run --project GetGrounded.Api --urls http://0.0.0.0:5217
+docker compose up --build
 ```
 
 ```bash
