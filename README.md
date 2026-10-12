@@ -7,6 +7,7 @@ Voice-first consistency companion.
 ## Repo layout
 
 ```text
+website/                 Marketing site (Vite → Cloudflare Pages, get-grounded.app)
 mobile/                  Expo app (React Native + TypeScript)
 api/GetGrounded.Domain   Domain rules and entities
 api/GetGrounded.Api      HTTP adapters
@@ -97,6 +98,8 @@ Same repo, separate workflows (path filters):
 | `.github/workflows/mobile-prod.yml` | `mobile/**` | Typecheck. EAS **prod** only on **Run workflow** |
 | `.github/workflows/infra-dev.yml` | `infra/terraform/**` | Terraform **dev**. Apply is manual |
 | `.github/workflows/infra-prod.yml` | `infra/terraform/**` | Terraform **prod**. Apply is manual |
+| `.github/workflows/website-dev.yml` | `website/**` | Lint + build. PR → Cloudflare preview |
+| `.github/workflows/website-prod.yml` | `website/**` | Deploy **get-grounded-web** on `main` |
 
 Mobile is not gated until we build the app.
 

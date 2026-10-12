@@ -1,0 +1,89 @@
+.form {
+  width: 100%;
+  max-width: var(--max);
+}
+
+.label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 480px) {
+  .row {
+    flex-direction: row;
+    align-items: stretch;
+  }
+}
+
+.input {
+  flex: 1;
+  min-height: 3rem;
+  padding: 0 1rem;
+  border: 1px solid var(--moss);
+  border-radius: var(--radius);
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.input:focus {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+
+.button {
+  min-height: 3rem;
+  padding: 0 1.25rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--forest);
+  color: var(--cream);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--forest-hover);
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.done {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--forest);
+}
+
+.error {
+  margin: 0.5rem 0 0;
+  color: #8b2e2e;
+  font-size: 0.9375rem;
+}
+
+.hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+.hint code {
+  font-size: 0.75rem;
+}

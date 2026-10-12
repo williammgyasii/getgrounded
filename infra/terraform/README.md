@@ -8,7 +8,8 @@ The state bucket is in Terraform with `prevent_destroy`. Prod uses the same buck
 |---|---|
 | `cloudflare_r2_bucket.tfstate` | `getgrounded-tfstate` |
 | `r2` | `getgrounded-dev-audio` |
-| `dns` | CNAME `dev.get-grounded.app` |
+| `dns` | CNAME `dev.get-grounded.app` → Cloud Run (`ghs.googlehosted.com`, DNS-only) |
+| (manual) | Apex + `www` → Cloudflare Pages `get-grounded-web.pages.dev` (marketing site in `website/`) |
 | `secret` | Neon `DATABASE_URL`, ElevenLabs, OpenAI, R2 keys → Cloud Run |
 | `cloud_run` | API container, public invoker, domain mapping (no Cloud SQL socket) |
 | `wif` | GitHub OIDC + `github-deploy` |

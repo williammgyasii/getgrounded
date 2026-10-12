@@ -1,0 +1,12 @@
+:root {
+  --stone: #f3efe8;
+  --ink: #1c1915;
+  --forest: #2f4a3c;
+  --forest-hover: #243a2f;
+  --cream: #faf7f1;
+  --moss: #dce6df;
+  --ink-muted: rgba(28, 25, 21, 0.62);
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --max: 36rem;
+  --radius: 12px;
+}
