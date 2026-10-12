@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "app.getgrounded.dev",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "GetGrounded uses the microphone so you can talk your morning and evening.",
         "NSSpeechRecognitionUsageDescription": "GetGrounded shows your words as you speak, then Scribe fixes the transcript."
       }

@@ -71,24 +71,31 @@ jobs:
           fi
 
   deploy:
-    name: CD — EAS production
+    name: CD — EAS production (${{ matrix.platform }})
     needs: [release-scope]
     if: |
       always() && (
         github.event_name == 'workflow_dispatch'
         || (github.ref_type == 'tag' && needs.release-scope.outputs.deploy == 'true')
       )
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [android, ios]
     runs-on: ubuntu-latest
     environment: prod
     defaults:
       run:
         working-directory: mobile
+    env:
+      # Push is enabled manually on the App ID; EAS PATCH for PUSH_NOTIFICATIONS often fails on Apple's API.
+      EXPO_NO_CAPABILITY_SYNC: "1"
     steps:
       - uses: actions/checkout@v4
       - name: Require EXPO_TOKEN
         run: |
           if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "::error::EXPO_TOKEN is missing in GitHub environment prod. Create a token at https://expo.dev/settings/access-tokens then: gh secret set EXPO_TOKEN --env prod --repo williammgyasii/getgrounded"
+            echo "::error::EXPO_TOKEN is missing in GitHub environment prod."
             exit 1
           fi
       - uses: actions/setup-node@v4
@@ -102,5 +109,5 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      # iOS needs interactive credential setup first: eas credentials:configure-build -p ios -e production
-      - run: eas build --profile production --platform android --non-interactive --no-wait
+      - name: Queue EAS production build
+        run: eas build --profile production --platform ${{ matrix.platform }} --non-interactive --no-wait

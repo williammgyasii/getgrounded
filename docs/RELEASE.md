@@ -29,7 +29,7 @@ Emergency redeploy without a tag: **Actions → API / Website / Mobile → Run w
 |------|--------|-------------------|
 | API | `CD — Cloudflare Containers` | `https://api.get-grounded.app` |
 | Website | `CD — Pages production` | `https://get-grounded.app` |
-| Mobile | `CD — EAS production` | EAS build (not automatic store submit) |
+| Mobile | `CD — EAS production (android \| ios)` | EAS build (not automatic store submit) |
 
 ## Worker secrets (API)
 
@@ -67,6 +67,16 @@ gh secret set EXPO_TOKEN --env prod --repo williammgyasii/getgrounded
 
 3. Re-run **Mobile → Run workflow** or push a tag that includes `mobile/**` changes.
 
-CI queues **Android** production builds only until iOS distribution credentials are configured (`eas credentials:configure-build -p ios -e production` locally, then switch workflow to `--platform all`).
+CI queues **Android and iOS** production builds in parallel (separate matrix jobs; one platform failing does not cancel the other).
+
+**iOS (App Store Connect API key, no Apple password):**
+
+1. Key file: `~/.config/getgrounded/apple/AuthKey_PP97L7M8BF.p8` (Key ID `PP97L7M8BF`).
+2. Copy `mobile/scripts/ios-asc.env.example` → `~/.config/getgrounded/apple/asc.env` and set **Issuer ID** + **Team ID** from App Store Connect / Apple Developer.
+3. Run: `mobile/scripts/configure-ios-production-credentials.sh` — enable **Push Notifications** in [Apple Developer](https://developer.apple.com/account/resources/identifiers/bundleId/edit/KUM32FD446) when the script prompts (EAS auto-sync for push often fails with an Apple API error; the script uses `EXPO_NO_CAPABILITY_SYNC=1` after you enable push manually).
+4. If Xcode still says the profile lacks **aps-environment**, remove the production provisioning profile in `eas credentials -p ios` and re-run step 3 or queue a new iOS build.
+5. After credentials are on EAS, tag or **Mobile → Run workflow** queues both platforms (CI sets `EXPO_NO_CAPABILITY_SYNC=1` for the same reason).
+
+**Android Gradle errors:** open the failed build on [expo.dev](https://expo.dev) → **Run gradlew** phase. Development (`development` profile) builds have succeeded; production uses a release Gradle graph — fix whatever that phase reports (often native module or SDK image; production uses `image: latest` in `eas.json`).
 
 Local builds (same profile as CI): `cd mobile && eas build --profile production --platform android --non-interactive`.
