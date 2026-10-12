@@ -1,40 +1,32 @@
 # GitHub Actions
 
-One repo, eight pipelines. Path filters keep them apart. GitHub **environments** `dev` and `prod` hold secrets.
+Four pipelines, one GitHub **environment** (`prod`) for secrets and deploy gates.
 
-| Workflow | Paths | Environment | What |
-|---|---|---|---|
-| `api-dev.yml` | `api/**`, `api-worker/**` | — | Test .NET + typecheck API worker |
-| `api-prod.yml` | `api/**`, `api-worker/**` | `prod` | Test .NET; on `main`, deploy **get-grounded-api** (Cloudflare Containers) |
-| `mobile-dev.yml` | `mobile/**` | `dev` | `tsc`. EAS `development` only via **Run workflow** |
-| `mobile-prod.yml` | `mobile/**` | `prod` | `tsc`. EAS `production` only via **Run workflow** |
-| `website-dev.yml` | `website/**` | `dev` (preview only) | Lint + build on PR and `main`. PR preview deploy to Cloudflare Pages |
-| `website-prod.yml` | `website/**` | `prod` | Lint + build + deploy **get-grounded-web** on `main` or **Run workflow** |
-| `infra-dev.yml` | `infra/terraform/**` | `dev` | Validate + plan `environments/dev`. Apply is manual |
-| `infra-prod.yml` | `infra/terraform/**` | `prod` | Validate + plan `environments/prod`. Apply is manual |
-
-EAS does not run on every push (that would spend money). Prod API does not auto-create a Cloud Run service.
-
-## Secrets
-
-| Secret | Where | Used by |
+| Workflow | Paths | What |
 |---|---|---|
-| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | `dev`, `prod` | Infra state |
-| `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY` | `dev`, `prod` | Infra, **website** Pages, **API** Workers + Containers |
-| `CLOUDFLARE_ACCOUNT_ID` | `dev`, `prod` | Wrangler (`pages deploy`, `wrangler deploy`) |
-| `VITE_LOOPS_FORM_ID` | `dev`, `prod` (optional) | Waitlist form at build time |
-| `VITE_SUPPORT_EMAIL` | `prod` (optional) | Account deletion page |
-| `VITE_HERO_VIDEO_URL` | `prod` (optional) | Landing hero video |
-| `EXPO_TOKEN` | `dev`, `prod` | EAS |
+| `api.yml` | `api/**`, `api-worker/**` | Test .NET + worker. On `main`, deploy **get-grounded-api** (Cloudflare Containers) |
+| `website.yml` | `website/**` | PR: lint + build + optional Pages preview. `main`: deploy **get-grounded-web** |
+| `mobile.yml` | `mobile/**` | Typecheck on PR/`main`. EAS **production** only via **Run workflow** |
+| `infra.yml` | `infra/terraform/**` | `fmt` + validate + plan **prod** root. Apply is manual dispatch only |
 
-**Cloudflare token (prod):** one token for Pages + API is fine. Minimum scopes:
+EAS and Terraform apply do not run on every push.
 
-- **Account → Workers Scripts → Edit** (deploy `get-grounded-api`, read/write Worker secrets)
-- **Account → Cloudflare Pages → Edit** (deploy `get-grounded-web`)
-- **Account → Account Settings → Read** (Wrangler account id)
+## Secrets (environment `prod`)
 
-Worker **runtime secrets** (`DATABASE_URL`, `FIREBASE_PROJECT_ID`, hear/R2 keys) live on the **`get-grounded-api`** Worker in Cloudflare (`wrangler secret put` or `deploy --secrets-file` from `api/.env`). CI **`wrangler deploy` does not pass secrets**; it keeps secrets already on the Worker.
+| Secret | Used by |
+|---|---|
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Infra Terraform state |
+| `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY` | Infra, website Pages, API Workers + Containers |
+| `CLOUDFLARE_ACCOUNT_ID` | Wrangler |
+| `VITE_LOOPS_FORM_ID` | Website build (optional) |
+| `VITE_SUPPORT_EMAIL` | Website build (optional) |
+| `VITE_HERO_VIDEO_URL` | Website prod build (optional) |
+| `EXPO_TOKEN` | EAS |
 
-Production: site **`get-grounded-web`** → **`get-grounded.app`**; API **`get-grounded-api`** → **`api.get-grounded.app`** (custom domains in Wrangler config).
+**Cloudflare token:** **Workers Scripts → Edit**, **Pages → Edit**, **Account Settings → Read**.
 
-This Mac still uses `~/.config/cloudflare/env`. Add `EXPO_TOKEN` after `eas login` + [Expo access token](https://expo.dev/accounts/[account]/settings/access-tokens). Run `eas init` in `mobile/` once so the project exists on Expo.
+Worker runtime secrets (`DATABASE_URL`, etc.) are on the **`get-grounded-api`** Worker in Cloudflare, not in GitHub. CI `wrangler deploy` keeps existing Worker secrets.
+
+Domains: **`get-grounded.app`** (Pages), **`api.get-grounded.app`** (API Worker).
+
+Legacy `infra/terraform/environments/dev` is not run in CI; use prod or local Terraform only.

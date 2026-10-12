@@ -4,7 +4,7 @@ Production API now targets **Cloudflare Containers** at `https://api.get-grounde
 
 After the new API is verified:
 
-1. **Stop CI deploys** — already removed from `api-dev.yml`; `api-prod.yml` deploys Cloudflare only.
+1. **Stop CI deploys** — `api.yml` deploys Cloudflare only (no Cloud Run).
 
 2. **Remove public URL to Cloud Run** (optional DNS):
 

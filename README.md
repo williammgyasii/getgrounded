@@ -92,14 +92,10 @@ Same repo, separate workflows (path filters):
 
 | Workflow | Runs when | Does |
 |---|---|---|
-| `.github/workflows/api-dev.yml` | `api/**` | Test. Deploy Cloud Run **dev** on `main` |
-| `.github/workflows/api-prod.yml` | `api/**` | Test. Prod Cloud Run only on **Run workflow** (refuses if the service is missing) |
-| `.github/workflows/mobile-dev.yml` | `mobile/**` | Typecheck. EAS **dev** only on **Run workflow** |
-| `.github/workflows/mobile-prod.yml` | `mobile/**` | Typecheck. EAS **prod** only on **Run workflow** |
-| `.github/workflows/infra-dev.yml` | `infra/terraform/**` | Terraform **dev**. Apply is manual |
-| `.github/workflows/infra-prod.yml` | `infra/terraform/**` | Terraform **prod**. Apply is manual |
-| `.github/workflows/website-dev.yml` | `website/**` | Lint + build. PR → Cloudflare preview |
-| `.github/workflows/website-prod.yml` | `website/**` | Deploy **get-grounded-web** on `main` |
+| `.github/workflows/api.yml` | `api/**`, `api-worker/**` | Test; deploy **get-grounded-api** on `main` |
+| `.github/workflows/website.yml` | `website/**` | PR: lint + build + preview; `main`: deploy Pages |
+| `.github/workflows/mobile.yml` | `mobile/**` | Typecheck; EAS production on **Run workflow** |
+| `.github/workflows/infra.yml` | `infra/terraform/**` | Plan prod; apply on **Run workflow** only |
 
 Mobile is not gated until we build the app.
 

@@ -54,11 +54,10 @@ API lives at **`api.get-grounded.app`** (Cloudflare Containers), not this Pages 
 
 | Workflow | When | What |
 |----------|------|------|
-| `website-dev.yml` | PR + push to `main` (path `website/**`) | `npm run lint` + `npm run build` |
-| `website-dev.yml` | PR from this repo | Preview deploy → comment with `*.pages.dev` URL |
-| `website-prod.yml` | Push to `main` or **Run workflow** | Build + deploy production branch on Pages |
+| `website.yml` | PR | Lint + build + optional preview comment |
+| `website.yml` | Push to `main` or **Run workflow** | Deploy production on Pages |
 
-Secrets live in GitHub **environments** (`dev` for PR previews, `prod` for production). See [`.github/README.md`](../.github/README.md).
+Secrets live in GitHub environment **`prod`**. See [`.github/README.md`](../.github/README.md).
 
 Required: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  
 Optional at build time: `VITE_LOOPS_FORM_ID`, `VITE_SUPPORT_EMAIL`, `VITE_HERO_VIDEO_URL`

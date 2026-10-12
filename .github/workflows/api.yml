@@ -1,0 +1,79 @@
+name: API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "api-worker/**"
+      - "global.json"
+      - ".github/workflows/api.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - "api-worker/**"
+      - "global.json"
+      - ".github/workflows/api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test .NET API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet test GetGrounded.slnx --configuration Release --nologo
+
+  worker-check:
+    name: Test and validate API worker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: api-worker/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+
+  deploy:
+    name: Deploy Cloudflare Containers
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, worker-check]
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: api-worker/package-lock.json
+      - run: npm ci
+        working-directory: api-worker
+      - name: Deploy Worker and container image
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: api-worker
+          command: deploy
+        env:
+          DOCKER_BUILDKIT: "1"
